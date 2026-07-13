@@ -260,17 +260,26 @@ def fetch_panchang(date_str):
 
 
 # --------------------------------------------------------------------------
-# Image rendering
+# Image rendering - composites onto the temple's own template image
 # --------------------------------------------------------------------------
 
-W, H = 900, 1300
-BG = (255, 250, 240)
-HEADER_COL = (139, 30, 30)
-SECTION_COL = (160, 82, 45)
+ASSET_DIR = os.path.join(HERE, "assets")
+TEMPLATE_PATH = os.path.join(ASSET_DIR, "panchangam_template.jpg")
+
+# Fraction of the template's height/width reserved by the purple header /
+# footer bars, based on the supplied template. Tweak these if content ever
+# overlaps the bars or leaves too much empty space.
+HEADER_FRAC = 0.11
+FOOTER_FRAC = 0.865
+LEFT_FRAC = 0.06
+RIGHT_FRAC = 0.94
+
+SECTION_COL = (95, 40, 130)     # purple, matches the template's header/footer
 TEXT_COL = (40, 30, 20)
-LINE_COL = (210, 180, 150)
+LINE_COL = (200, 190, 210)
 GOOD_COL = (20, 90, 40)
 WARN_COL = (150, 30, 30)
+SUBTITLE_COL = (90, 70, 110)
 
 def font_for(lang, weight, size):
     if lang == "en":
@@ -282,26 +291,48 @@ def font_for(lang, weight, size):
     return ImageFont.truetype(os.path.join(FONT_DIR, path), size)
 
 
-def render_card(lang, title, subtitle, sections, outpath):
-    img = Image.new("RGB", (W, H), BG)
+def render_card(lang, subtitle, sections, outpath):
+    base = Image.open(TEMPLATE_PATH).convert("RGB")
+    W, H = base.size
+    img = base.copy()
     d = ImageDraw.Draw(img)
-    d.rectangle([0, 0, W, 140], fill=HEADER_COL)
-    d.text((W / 2, 50), title, font=font_for(lang, "bold", 42), fill="white", anchor="mm")
-    d.text((W / 2, 100), subtitle, font=font_for(lang, "medium", 24), fill=(255, 230, 200), anchor="mm")
 
-    y = 170
+    top = int(H * HEADER_FRAC)
+    bottom = int(H * FOOTER_FRAC)
+    left = int(W * LEFT_FRAC)
+    right = int(W * RIGHT_FRAC)
+    content_w = right - left
+
+    # scale font sizes relative to template width (was tuned for a ~1587px
+    # wide template; scales proportionally for other sizes)
+    scale = W / 1587.0
+    f_sub = font_for(lang, "medium", int(30 * scale))
+    f_sec = font_for(lang, "bold", int(34 * scale))
+    f_lbl = font_for(lang, "medium", int(28 * scale))
+    f_val = font_for(lang, "bold", int(28 * scale))
+
+    y = top + int(20 * scale)
+    d.text((W / 2, y), subtitle, font=f_sub, fill=SUBTITLE_COL, anchor="ma")
+    y += int(55 * scale)
+
+    n_rows = sum(len(rows) for _, rows in sections)
+    n_secs = len(sections)
+    available = bottom - y
+    row_h = min(int(50 * scale), (available - n_secs * int(70 * scale)) // max(n_rows, 1))
+    row_h = max(row_h, int(34 * scale))
+
     for sec_title, rows in sections:
-        d.text((50, y), sec_title, font=font_for(lang, "bold", 28), fill=SECTION_COL)
-        d.line([50, y + 38, W - 50, y + 38], fill=LINE_COL, width=2)
-        y += 58
+        d.text((left, y), sec_title, font=f_sec, fill=SECTION_COL)
+        d.line([left, y + int(44 * scale), right, y + int(44 * scale)], fill=LINE_COL, width=max(2, int(2 * scale)))
+        y += int(64 * scale)
         for label, value, warn in rows:
-            d.text((70, y), label, font=font_for(lang, "medium", 24), fill=TEXT_COL)
+            d.text((left + int(20 * scale), y), label, font=f_lbl, fill=TEXT_COL)
             color = WARN_COL if warn else GOOD_COL
-            d.text((W - 70, y), value, font=font_for(lang, "bold", 24), fill=color, anchor="ra")
-            y += 44
-        y += 16
+            d.text((right, y), value, font=f_val, fill=color, anchor="ra")
+            y += row_h
+        y += int(14 * scale)
 
-    img.save(outpath)
+    img.save(outpath, quality=92)
     return outpath
 
 
@@ -358,8 +389,8 @@ def build_images(data, dt_ist):
                 (L["durmuhurtam"], data["durmuhurtam"] or "-", True),
             ]),
         ]
-        outpath = os.path.join(HERE, f"panchangam_{lang}.png")
-        render_card(lang, L["title"], subtitle, sections, outpath)
+        outpath = os.path.join(HERE, f"panchangam_{lang}.jpg")
+        render_card(lang, subtitle, sections, outpath)
         outputs.append((lang, outpath))
     return outputs
 
