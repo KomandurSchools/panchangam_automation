@@ -1,1 +1,28 @@
+name: Daily Panchangam WhatsApp Send
 
+on:
+  schedule:
+    # 00:00 UTC = 05:30 AM IST, every day
+    - cron: '0 0 * * *'
+  workflow_dispatch: {}   # lets you click "Run workflow" manually to test
+
+jobs:
+  send-panchangam:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run daily Panchangam script
+        env:
+          TEXTMEBOT_APIKEY: ${{ secrets.TEXTMEBOT_APIKEY }}
+          RECIPIENT_NUMBERS: ${{ secrets.RECIPIENT_NUMBERS }}
+        run: python panchangam_daily.py
