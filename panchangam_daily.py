@@ -47,6 +47,7 @@ CITY_LABEL_TA = os.environ.get("CITY_LABEL_TA", "திருப்பதி, �
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FONT_DIR = os.path.join(HERE, "fonts")
+
 # --------------------------------------------------------------------------
 # Translation tables (standard, fixed Panchangam vocabulary - these never
 # change, only which entry is "today's" value changes day to day)
@@ -128,6 +129,24 @@ KARANA_TA = {
     "Garaja": "கரஜம்", "Vanija": "வணிஜம்", "Vishti": "பத்திரை", "Shakuni": "சகுனி",
     "Chatushpada": "சதுஷ்பாதம்", "Naga": "நாகவம்", "Kimstughna": "கிம்ஸ்துக்னம்",
 }
+
+# Drik Panchang's raw English spelling sometimes differs from the spelling
+# South Indian temples/audiences actually use. This maps their spelling to
+# the preferred one for the ENGLISH card only (the Telugu/Tamil cards are
+# unaffected, since those go through their own translation dictionaries
+# above). Add more entries here any time a spelling looks off - one line
+# each, no other code changes needed.
+EN_SPELLING_OVERRIDES = {
+    "Ardra": "Arudra",
+}
+
+def apply_en_overrides(text):
+    if not text:
+        return text
+    for raw, preferred in EN_SPELLING_OVERRIDES.items():
+        text = re.sub(r'\b' + re.escape(raw) + r'\b', preferred, text)
+    return text
+
 LABELS = {
     "en": {
         "title": "Today's Panchangam", "core": "Panchang Core", "sunmoon": "Sun & Moon",
@@ -436,7 +455,8 @@ def build_images(data, dt_ist):
 
     outputs = []
     for lang, tithi, nak, yoga, kar, paksha, weekday, month_name in [
-        ("en", data["tithi"], data["nakshatra"], data["yoga"], data["karana"],
+        ("en", apply_en_overrides(data["tithi"]), apply_en_overrides(data["nakshatra"]),
+         apply_en_overrides(data["yoga"]), apply_en_overrides(data["karana"]),
          data["paksha"], data["weekday_full"], dt_ist.strftime("%B")),
         ("te", te_tithi, te_nak, te_yoga, te_kar, te_paksha, te_weekday, MONTH_TE[dt_ist.month]),
         ("ta", ta_tithi, ta_nak, ta_yoga, ta_kar, ta_paksha, ta_weekday, MONTH_TA[dt_ist.month]),
