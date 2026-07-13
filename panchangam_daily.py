@@ -155,8 +155,8 @@ LABELS = {
         "paksha": "Paksha", "sunrise": "Sunrise", "sunset": "Sunset", "moonrise": "Moonrise",
         "moonset": "Moonset", "brahma": "Brahma Muhurta", "abhijit": "Abhijit Muhurta",
         "amrit": "Amrit Kalam", "rahu": "Rahu Kalam", "yama": "Yamagandam",
-        "gulika": "Gulikai Kalam", "durmuhurtam": "Durmuhurtam", "upto": "upto",
-        "then": "then", "none_today": "None Today",
+        "gulika": "Gulikai Kalam", "durmuhurtam": "Durmuhurtam", "varjyam": "Varjyam",
+        "upto": "upto", "then": "then", "none_today": "None Today",
     },
     "te": {
         "title": "నేటి పంచాంగం", "core": "పంచాంగ వివరాలు", "sunmoon": "సూర్య చంద్ర సమయాలు",
@@ -165,8 +165,8 @@ LABELS = {
         "paksha": "పక్షం", "sunrise": "సూర్యోదయం", "sunset": "సూర్యాస్తమయం", "moonrise": "చంద్రోదయం",
         "moonset": "చంద్రాస్తమయం", "brahma": "బ్రహ్మ ముహూర్తం", "abhijit": "అభిజిత్ ముహూర్తం",
         "amrit": "అమృత కాలం (ఘడియలు)", "rahu": "రాహు కాలం", "yama": "యమగండం",
-        "gulika": "గుళిక కాలం", "durmuhurtam": "దుర్ముహూర్తం", "upto": "వరకు",
-        "then": "తర్వాత", "none_today": "ఈరోజు లేదు",
+        "gulika": "గుళిక కాలం", "durmuhurtam": "దుర్ముహూర్తం", "varjyam": "వర్జ్యము",
+        "upto": "వరకు", "then": "తర్వాత", "none_today": "ఈరోజు లేదు",
     },
     "ta": {
         "title": "இன்றைய பஞ்சாங்கம்", "core": "பஞ்சாங்க விவரங்கள்", "sunmoon": "சூரிய சந்திர நேரங்கள்",
@@ -175,8 +175,8 @@ LABELS = {
         "paksha": "பக்ஷம்", "sunrise": "சூரிய உதயம்", "sunset": "சூரிய அஸ்தமனம்", "moonrise": "சந்திர உதயம்",
         "moonset": "சந்திர அஸ்தமனம்", "brahma": "பிரம்ம முகூர்த்தம்", "abhijit": "அபிஜித் முகூர்த்தம்",
         "amrit": "அமிர்த காலம்", "rahu": "ராகு காலம்", "yama": "எமகண்டம்",
-        "gulika": "குளிகை காலம்", "durmuhurtam": "துர்முகூர்த்தம்", "upto": "வரை",
-        "then": "பின்", "none_today": "இன்று இல்லை",
+        "gulika": "குளிகை காலம்", "durmuhurtam": "துர்முகூர்த்தம்", "varjyam": "வர்ஜ்யம்",
+        "upto": "வரை", "then": "பின்", "none_today": "இன்று இல்லை",
     },
 }
 
@@ -301,6 +301,7 @@ def fetch_panchang(date_str):
     data["yamaganda"] = find_value("Yamaganda")
     data["gulikai_kalam"] = find_value("Gulikai Kalam")
     data["durmuhurtam"] = find_value("Dur Muhurtam")
+    data["varjyam"] = find_value("Varjyam")
 
     missing = [k for k, v in data.items() if not v]
     if missing:
@@ -355,7 +356,7 @@ def validate_data(data):
 
     time_fields = ["sunrise", "sunset", "moonrise", "moonset", "brahma_muhurta",
                    "abhijit", "amrit_kalam", "rahu_kalam", "yamaganda",
-                   "gulikai_kalam", "durmuhurtam"]
+                   "gulikai_kalam", "durmuhurtam", "varjyam"]
     for field in time_fields:
         val = data.get(field)
         if not val:
@@ -381,12 +382,10 @@ FOOTER_FRAC = 0.865
 LEFT_FRAC = 0.06
 RIGHT_FRAC = 0.94
 
-SECTION_COL = (95, 40, 130)     # purple, matches the template's header/footer
+SECTION_COL = (95, 40, 130)     # purple, matches the template's own header/footer bars
 TEXT_COL = (40, 30, 20)
-LINE_COL = (200, 190, 210)
-GOOD_COL = (20, 90, 40)
-WARN_COL = (150, 30, 30)
-SUBTITLE_COL = (90, 70, 110)
+LINE_COL = (185, 170, 195)
+SUBTITLE_COL = (95, 40, 130)
 
 def font_for(lang, weight, size):
     if lang == "en":
@@ -398,7 +397,78 @@ def font_for(lang, weight, size):
     return ImageFont.truetype(os.path.join(FONT_DIR, path), size)
 
 
-def render_card(lang, subtitle, sections, outpath):
+def _wrap_lines(draw, text, font, max_width):
+    """Word-wrap text to fit max_width, measured with the real font via
+    textbbox (a pure measurement call - it doesn't draw anything)."""
+    text = text or "-"
+    words = text.split(" ")
+    lines = []
+    cur = ""
+    for w in words:
+        trial = (cur + " " + w).strip()
+        bbox = draw.textbbox((0, 0), trial, font=font)
+        if bbox[2] - bbox[0] <= max_width or not cur:
+            cur = trial
+        else:
+            lines.append(cur)
+            cur = w
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def _measure_blocks(draw, lang, blocks, content_w, font_scale, scale):
+    """Compute every box's size at a given font_scale WITHOUT drawing
+    anything, so render_card can auto-shrink the font until everything
+    fits between the template's header and footer bars."""
+    header_size = max(int(34 * scale * font_scale), 14)
+    value_size = max(int(32 * scale * font_scale), 14)
+    list_header_size = max(int(36 * scale * font_scale), 14)
+    list_row_size = max(int(30 * scale * font_scale), 14)
+    pad = max(int(16 * scale * font_scale), 6)
+    col_gap = max(int(18 * scale * font_scale), 6)
+
+    fonts = {
+        "header": font_for(lang, "bold", header_size),
+        "value": font_for(lang, "bold", value_size),
+        "list_header": font_for(lang, "bold", list_header_size),
+        "list_row_lbl": font_for(lang, "medium", list_row_size),
+        "list_row_val": font_for(lang, "bold", list_row_size),
+    }
+    value_line_h = value_size + int(10 * scale * font_scale)
+    list_row_h = list_row_size + int(16 * scale * font_scale)
+
+    geoms = []
+    total_h = 0
+    for blk in blocks:
+        if blk["type"] == "pair":
+            box_w = (content_w - col_gap) // 2
+            usable_w = box_w - 2 * pad
+            left_lines = _wrap_lines(draw, blk["left"][1], fonts["value"], usable_w)
+            right_lines = _wrap_lines(draw, blk["right"][1], fonts["value"], usable_w)
+            n_lines = max(len(left_lines), len(right_lines), 1)
+            header_h = header_size + 2 * pad
+            value_h = n_lines * value_line_h + 2 * pad
+            geoms.append({"type": "pair", "box_w": box_w, "header_h": header_h,
+                          "value_h": value_h, "left_lines": left_lines, "right_lines": right_lines})
+            total_h += header_h + value_h
+        else:  # "list"
+            header_h = list_header_size + 2 * pad
+            rows_h = len(blk["rows"]) * list_row_h + 2 * pad
+            geoms.append({"type": "list", "header_h": header_h, "rows_h": rows_h})
+            total_h += header_h + rows_h
+
+    row_gap = max(int(16 * scale * font_scale), 6)
+    total_h += row_gap * max(len(blocks) - 1, 0)
+    return total_h, geoms, fonts, pad, col_gap, value_line_h, list_row_h, row_gap
+
+
+def render_card(lang, subtitle, blocks, outpath):
+    """Draws a 2-column grid of bordered boxes (one box per field, e.g.
+    Tithi | Nakshatra side by side) onto the temple's template image,
+    styled after the layout the temple already uses in its manual
+    Panchangam posts. Font size auto-shrinks as needed so nothing ever
+    overlaps or runs past the footer bar."""
     base = Image.open(TEMPLATE_PATH).convert("RGB")
     W, H = base.size
     img = base.copy()
@@ -409,35 +479,58 @@ def render_card(lang, subtitle, sections, outpath):
     left = int(W * LEFT_FRAC)
     right = int(W * RIGHT_FRAC)
     content_w = right - left
-
-    # scale font sizes relative to template width (was tuned for a ~1587px
-    # wide template; scales proportionally for other sizes)
     scale = W / 1587.0
-    f_sub = font_for(lang, "medium", int(30 * scale))
-    f_sec = font_for(lang, "bold", int(34 * scale))
-    f_lbl = font_for(lang, "medium", int(28 * scale))
-    f_val = font_for(lang, "bold", int(28 * scale))
 
-    y = top + int(20 * scale)
+    subtitle_size = max(int(32 * scale), 14)
+    f_sub = font_for(lang, "medium", subtitle_size)
+    subtitle_h = subtitle_size + int(30 * scale)
+    content_top = top + int(24 * scale)
+    available = bottom - content_top - subtitle_h
+
+    # Auto-fit: try full size first, shrink ~8% at a time until the whole
+    # grid fits in the available space (floor at 40% of base size).
+    font_scale = 1.0
+    for _ in range(14):
+        total_h, geoms, fonts, pad, col_gap, value_line_h, list_row_h, row_gap = _measure_blocks(
+            d, lang, blocks, content_w, font_scale, scale)
+        if total_h <= available or font_scale <= 0.4:
+            break
+        font_scale *= 0.92
+
+    y = content_top
     d.text((W / 2, y), subtitle, font=f_sub, fill=SUBTITLE_COL, anchor="ma")
-    y += int(55 * scale)
+    y += subtitle_h
 
-    n_rows = sum(len(rows) for _, rows in sections)
-    n_secs = len(sections)
-    available = bottom - y
-    row_h = min(int(50 * scale), (available - n_secs * int(70 * scale)) // max(n_rows, 1))
-    row_h = max(row_h, int(34 * scale))
-
-    for sec_title, rows in sections:
-        d.text((left, y), sec_title, font=f_sec, fill=SECTION_COL)
-        d.line([left, y + int(44 * scale), right, y + int(44 * scale)], fill=LINE_COL, width=max(2, int(2 * scale)))
-        y += int(64 * scale)
-        for label, value, warn in rows:
-            d.text((left + int(20 * scale), y), label, font=f_lbl, fill=TEXT_COL)
-            color = WARN_COL if warn else GOOD_COL
-            d.text((right, y), value, font=f_val, fill=color, anchor="ra")
-            y += row_h
-        y += int(14 * scale)
+    border_w = max(2, int(2 * scale))
+    for blk, geom in zip(blocks, geoms):
+        if geom["type"] == "pair":
+            box_w = geom["box_w"]
+            header_h = geom["header_h"]
+            box_h = header_h + geom["value_h"]
+            for i, side in enumerate(("left", "right")):
+                bx = left + i * (box_w + col_gap)
+                d.rectangle([bx, y, bx + box_w, y + box_h], outline=LINE_COL, width=border_w, fill=(255, 255, 255))
+                d.rectangle([bx, y, bx + box_w, y + header_h], fill=SECTION_COL)
+                d.text((bx + box_w / 2, y + header_h / 2), blk[side][0], font=fonts["header"],
+                       fill=(255, 255, 255), anchor="mm")
+                ty = y + header_h + pad
+                for line in geom[f"{side}_lines"]:
+                    d.text((bx + box_w / 2, ty), line, font=fonts["value"], fill=TEXT_COL, anchor="ma")
+                    ty += value_line_h
+            y += box_h + row_gap
+        else:  # "list"
+            header_h = geom["header_h"]
+            box_h = header_h + geom["rows_h"]
+            d.rectangle([left, y, right, y + box_h], outline=LINE_COL, width=border_w, fill=(255, 255, 255))
+            d.rectangle([left, y, right, y + header_h], fill=SECTION_COL)
+            d.text((left + content_w / 2, y + header_h / 2), blk["header"], font=fonts["list_header"],
+                   fill=(255, 255, 255), anchor="mm")
+            ry = y + header_h + pad
+            for lbl, val in blk["rows"]:
+                d.text((left + pad, ry), lbl, font=fonts["list_row_lbl"], fill=TEXT_COL)
+                d.text((right - pad, ry), val, font=fonts["list_row_val"], fill=TEXT_COL, anchor="ra")
+                ry += list_row_h
+            y += box_h + row_gap
 
     img.save(outpath, quality=92)
     return outpath
@@ -471,34 +564,25 @@ def build_images(data, dt_ist):
 
         abhijit_val = data["abhijit"] if data["abhijit"] and data["abhijit"].lower() != "none" else L["none_today"]
 
-        sections = [
-            (L["core"], [
-                (L["tithi"], tithi or "-", False),
-                (L["nakshatra"], nak or "-", False),
-                (L["yoga"], yoga or "-", False),
-                (L["karana"], kar or "-", False),
-                (L["paksha"], paksha or "-", False),
-            ]),
-            (L["sunmoon"], [
-                (L["sunrise"], data["sunrise"] or "-", False),
-                (L["sunset"], data["sunset"] or "-", False),
-                (L["moonrise"], data["moonrise"] or "-", False),
-                (L["moonset"], data["moonset"] or "-", False),
-            ]),
-            (L["auspicious"], [
-                (L["brahma"], data["brahma_muhurta"] or "-", False),
-                (L["abhijit"], abhijit_val, False),
-                (L["amrit"], data["amrit_kalam"] or "-", False),
-            ]),
-            (L["inauspicious"], [
-                (L["rahu"], data["rahu_kalam"] or "-", True),
-                (L["yama"], data["yamaganda"] or "-", True),
-                (L["gulika"], data["gulikai_kalam"] or "-", True),
-                (L["durmuhurtam"], data["durmuhurtam"] or "-", True),
-            ]),
+        # 2-column boxed grid, styled after the temple's own manual layout:
+        # one bordered box per field, paired up two-to-a-row, plus a single
+        # full-width box for the auspicious muhurtas.
+        blocks = [
+            {"type": "list", "header": L["auspicious"], "rows": [
+                (L["brahma"], data["brahma_muhurta"] or "-"),
+                (L["abhijit"], abhijit_val),
+            ]},
+            {"type": "pair", "left": (L["tithi"], tithi or "-"), "right": (L["nakshatra"], nak or "-")},
+            {"type": "pair", "left": (L["yoga"], yoga or "-"), "right": (L["karana"], kar or "-")},
+            {"type": "pair", "left": (L["sunrise"], data["sunrise"] or "-"), "right": (L["sunset"], data["sunset"] or "-")},
+            {"type": "pair", "left": (L["moonrise"], data["moonrise"] or "-"), "right": (L["moonset"], data["moonset"] or "-")},
+            {"type": "pair", "left": (L["rahu"], data["rahu_kalam"] or "-"), "right": (L["yama"], data["yamaganda"] or "-")},
+            {"type": "pair", "left": (L["gulika"], data["gulikai_kalam"] or "-"), "right": (L["durmuhurtam"], data["durmuhurtam"] or "-")},
+            {"type": "pair", "left": (L["varjyam"], data["varjyam"] or "-"), "right": (L["amrit"], data["amrit_kalam"] or "-")},
         ]
+
         outpath = os.path.join(HERE, f"panchangam_{lang}.jpg")
-        render_card(lang, subtitle, sections, outpath)
+        render_card(lang, subtitle, blocks, outpath)
         outputs.append((lang, outpath))
     return outputs
 
