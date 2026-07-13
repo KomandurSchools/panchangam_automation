@@ -343,49 +343,136 @@ def fetch_panchang(date_str):
 
     # Drik Panchang sometimes renders a time and its AM/PM marker as two
     # separate text nodes (e.g. "05:52" then "AM" on their own lines), and
-    # time ranges like "12:17 PM to 01:54 PM" can likewise be split into
-    # several fragments ("12:17", "PM", "to", "01:54", "PM"). After finding
-    # the first fragment of a value, we glue on any immediately-following
-    # short continuation fragments (a bare AM/PM marker, "to", or another
-    # bare H:MM) so values never get truncated mid-time.
-    _FRAG_CONTINUE_RE = re.compile(r'^(AM|PM|to|\d{1,2}:\d{2})$', re.IGNORECASE)
+    # a chained value like "Chaturdashi upto 06:28 PM, then Amavasya" can
+    # be split into many fragments ("Chaturdashi", "upto", "06:28", "PM",
+    # "then", "Amavasya", each its own line). find_value() below handles
+    # the simple single-fragment case; find_chain_value() and
+    # find_window_value() below it handle the two ways a value can span
+    # multiple fragments, each with its own stopping rule so one field's
+    # leftover fragments can never bleed into the next field's value.
+    _BARE_CONTINUE_RE = re.compile(r'^(AM|PM|to|\d{1,2}:\d{2})$', re.IGNORECASE)
+    _CHAIN_CONTINUE_RE = re.compile(r'^(AM|PM|to|upto|then|\d{1,2}:\d{2})$', re.IGNORECASE)
+    _RANGE_COMPLETE_RE = re.compile(
+        r'\d{1,2}:\d{2}\s*(AM|PM)\s*to\s*\d{1,2}:\d{2}\s*(AM|PM)', re.IGNORECASE
+    )
 
-    def find_value(label, lookahead=6):
-        """Find a line exactly equal to `label` within the bounded data
-        region, return the next non-empty, non-icon line after it, with
-        any split-off AM/PM/"to"/time continuation fragments reattached."""
+    def _join_frags(frags):
+        """Join fragments with a comma before "then" for readability
+        ("upto 06:28 PM, then Amavasya" instead of a run-on sentence)."""
+        out = frags[0]
+        for f in frags[1:]:
+            if f.lower() == "then":
+                out += ","
+            out += " " + f
+        return re.sub(r'\s+', ' ', out).strip()
+
+    def _first_fragment(label, lookahead):
+        """Locate `label` in the bounded region and return the index of the
+        next real (non-empty, non-icon, non-label-repeat) line after it, or
+        None if not found."""
         for i, l in enumerate(region):
             if l == label:
                 for j in range(i + 1, min(i + 1 + lookahead, len(region))):
                     cand = region[j]
                     if cand and cand != label and not cand.startswith("ⓘ"):
-                        frags = [cand]
-                        k = j + 1
-                        while k < len(region) and k < j + 8 and _FRAG_CONTINUE_RE.match(region[k] or ""):
-                            frags.append(region[k])
-                            k += 1
-                        return re.sub(r'\s+', ' ', " ".join(frags)).strip()
+                        return j
         return None
 
+    def find_value(label, lookahead=6):
+        """Simple lookup for fields that are always a single fragment or a
+        single AM/PM-glued time (Weekday, Paksha, Sunrise/Sunset/Moonrise/
+        Moonset, and the best-effort year-info fields)."""
+        j = _first_fragment(label, lookahead)
+        if j is None:
+            return None
+        frags = [region[j]]
+        k = j + 1
+        while k < len(region) and k < j + 8 and _BARE_CONTINUE_RE.match(region[k] or ""):
+            frags.append(region[k])
+            k += 1
+        return re.sub(r'\s+', ' ', " ".join(frags)).strip()
+
+    def find_window_value(label, max_windows=1, lookahead=6):
+        """For time-range fields (Rahu Kalam, Yamaganda, Gulikai Kalam,
+        Brahma Muhurta, Abhijit, Amrit Kalam, Dur Muhurtam, Varjyam). Stops
+        as soon as `max_windows` complete "H:MM AM/PM to H:MM AM/PM" ranges
+        have been formed, so it can never keep gluing on fragments that
+        actually belong to the NEXT field (the bug that produced a garbled
+        "01:55 PM to 03:31 PM 03:18 PM to" Gulikai Kalam value in
+        production). max_windows=1 for fields that are always a single
+        window; =2 for Dur Muhurtam/Varjyam, which can have two."""
+        j = _first_fragment(label, lookahead)
+        if j is None:
+            return None
+        frags = [region[j]]
+        k = j + 1
+        windows_seen = 0
+        while k < len(region) and (k - j) < 20:
+            cand = region[k]
+            if not cand:
+                k += 1
+                continue
+            if not _BARE_CONTINUE_RE.match(cand) and cand.lower() != "then":
+                break
+            frags.append(cand)
+            k += 1
+            joined = re.sub(r'\s+', ' ', " ".join(frags))
+            windows_seen = len(_RANGE_COMPLETE_RE.findall(joined))
+            if windows_seen >= max_windows and cand.lower() != "then":
+                break
+        return _join_frags(frags)
+
+    def find_chain_value(label, lookahead=6):
+        """For fields that name something and can optionally transition to
+        a second (or third) name partway through the day - Tithi,
+        Nakshatra, Yoga, Karana - rendered as e.g. "Chaturdashi", "upto",
+        "06:28", "PM", "then", "Amavasya" each on their own line. Glues
+        together the name plus any "upto TIME, then NAME" continuations;
+        stops at the first line that doesn't fit that grammar (the next
+        field's label)."""
+        j = _first_fragment(label, lookahead)
+        if j is None:
+            return None
+        frags = [region[j]]
+        k = j + 1
+        while k < len(region) and (k - j) < 30:
+            cand = region[k]
+            if not cand:
+                k += 1
+                continue
+            if _CHAIN_CONTINUE_RE.match(cand):
+                frags.append(cand)
+                k += 1
+                continue
+            # A bare word immediately after "then" is the next segment's
+            # name (e.g. "...then", "Amavasya") - anything else means we've
+            # hit unrelated content (the next field's label) and should stop.
+            if frags[-1].lower() == "then" and re.match(r'^[A-Za-z ]+$', cand):
+                frags.append(cand)
+                k += 1
+                continue
+            break
+        return _join_frags(frags)
+
     data = {}
-    data["tithi"] = find_value("Tithi")
-    data["nakshatra"] = find_value("Nakshatra")
-    data["yoga"] = find_value("Yoga")
-    data["karana"] = find_value("Karana")
+    data["tithi"] = find_chain_value("Tithi")
+    data["nakshatra"] = find_chain_value("Nakshatra")
+    data["yoga"] = find_chain_value("Yoga")
+    data["karana"] = find_chain_value("Karana")
     data["weekday"] = find_value("Weekday")
     data["paksha"] = find_value("Paksha")
     data["sunrise"] = find_value("Sunrise")
     data["sunset"] = find_value("Sunset")
     data["moonrise"] = find_value("Moonrise")
     data["moonset"] = find_value("Moonset")
-    data["brahma_muhurta"] = find_value("Brahma Muhurta")
-    data["abhijit"] = find_value("Abhijit")
-    data["amrit_kalam"] = find_value("Amrit Kalam")
-    data["rahu_kalam"] = find_value("Rahu Kalam")
-    data["yamaganda"] = find_value("Yamaganda")
-    data["gulikai_kalam"] = find_value("Gulikai Kalam")
-    data["durmuhurtam"] = find_value("Dur Muhurtam")
-    data["varjyam"] = find_value("Varjyam")
+    data["brahma_muhurta"] = find_window_value("Brahma Muhurta", max_windows=1)
+    data["abhijit"] = find_window_value("Abhijit", max_windows=1)
+    data["amrit_kalam"] = find_window_value("Amrit Kalam", max_windows=1)
+    data["rahu_kalam"] = find_window_value("Rahu Kalam", max_windows=1)
+    data["yamaganda"] = find_window_value("Yamaganda", max_windows=1)
+    data["gulikai_kalam"] = find_window_value("Gulikai Kalam", max_windows=1)
+    data["durmuhurtam"] = find_window_value("Dur Muhurtam", max_windows=2)
+    data["varjyam"] = find_window_value("Varjyam", max_windows=2)
 
     # --- Best-effort extras: Samvatsara (year name), lunar month, season,
     # and ayana. These live further down the same page, further from the
@@ -402,12 +489,28 @@ def fetch_panchang(date_str):
     data["masa"] = None
     masa_idx = next((i for i, l in enumerate(region) if l == "Chandramasa"), None)
     if masa_idx is not None:
-        amanta_re = re.compile(r'^([A-Za-z]+)\s*-\s*Amanta$')
-        for j in range(masa_idx + 1, min(masa_idx + 10, len(region))):
-            m = amanta_re.match(region[j])
+        window = region[masa_idx + 1: masa_idx + 25]
+        # Try the single-line form first: "Jyeshtha - Amanta"
+        amanta_re = re.compile(r'^([A-Za-z]+)\s*-\s*Amanta$', re.IGNORECASE)
+        for l in window:
+            m = amanta_re.match(l or "")
             if m:
                 data["masa"] = m.group(1)
                 break
+        # Fall back to a fragmented form where "Amanta" is its own line and
+        # the month name is one of the few non-empty lines just before it.
+        if not data["masa"]:
+            for idx, l in enumerate(window):
+                if (l or "").strip().lower() == "amanta":
+                    back = [x for x in window[max(0, idx - 3):idx] if x and x != "-"]
+                    if back:
+                        data["masa"] = back[-1]
+                    break
+        # Last resort: whatever name follows "Chandramasa" directly (the
+        # Purnimanta name), stripping a trailing "- Purnimanta" suffix if
+        # present - not the Amanta name we prefer, but better than "-".
+        if not data["masa"] and window and window[0]:
+            data["masa"] = re.sub(r'\s*-\s*Purnimanta$', '', window[0], flags=re.IGNORECASE).strip() or None
 
     ritu_raw = find_value("Vedic Ritu")
     data["ritu"] = ritu_raw.split(" (")[0].strip() if ritu_raw else None
@@ -593,7 +696,10 @@ def render_card(lang, subtitle, blocks, outpath):
     d = ImageDraw.Draw(img)
 
     top = int(H * HEADER_FRAC)
-    bottom = int(H * FOOTER_FRAC)
+    # Small safety margin below the nominal footer-bar boundary, so even a
+    # rounding edge case never lets content visually touch the temple's
+    # footer banner.
+    bottom = int(H * FOOTER_FRAC) - int(H * 0.008)
     left = int(W * LEFT_FRAC)
     right = int(W * RIGHT_FRAC)
     content_w = right - left
@@ -606,18 +712,41 @@ def render_card(lang, subtitle, blocks, outpath):
     available = bottom - content_top - subtitle_h
 
     # Auto-fit: search for the LARGEST font_scale that still fits (start
-    # big and shrink ~4% at a time), floor at 40% of base size. This finds
-    # the biggest font the content allows on any given day - short values
-    # get a bigger font than a day with several long chained tithi/nakshatra
-    # transitions.
+    # big and shrink ~3% at a time), floor at 22% of base size - low enough
+    # that this should only ever bottom out on a genuinely pathological
+    # amount of content. This finds the biggest font the content allows on
+    # any given day - short values get a bigger font than a day with
+    # several long chained tithi/nakshatra transitions.
     font_scale = 1.6
     total_h = geoms = fonts = pad = col_gap = value_line_h = list_row_h = row_gap = None
     while True:
         total_h, geoms, fonts, pad, col_gap, value_line_h, list_row_h, row_gap = _measure_blocks(
             d, lang, blocks, content_w, font_scale, scale)
-        if total_h <= available or font_scale <= 0.4:
+        if total_h <= available or font_scale <= 0.22:
             break
-        font_scale -= 0.04
+        font_scale -= 0.03
+
+    # Hard safety valve: even at the smallest readable font, an extreme day
+    # (many fields all long at once) could in theory still not fit. Rather
+    # than let that overflow into the temple's footer banner (which is
+    # exactly the bug that slipped through before), compress the box/line
+    # heights themselves so the whole grid is GUARANTEED to end at or above
+    # `bottom`, no matter what. This should essentially never trigger given
+    # the font floor above, but it's the backstop that makes overflow
+    # actually impossible rather than just unlikely.
+    if total_h > available > 0:
+        squeeze = max(available / total_h, 0.5)
+        for g in geoms:
+            if g["type"] == "pair":
+                g["header_h"] = max(int(g["header_h"] * squeeze), 1)
+                g["value_h"] = max(int(g["value_h"] * squeeze), 1)
+            else:
+                g["header_h"] = max(int(g["header_h"] * squeeze), 1)
+                g["rows_h"] = max(int(g["rows_h"] * squeeze), 1)
+        value_line_h = max(int(value_line_h * squeeze), 1)
+        list_row_h = max(int(list_row_h * squeeze), 1)
+        row_gap = max(row_gap * squeeze, 0)
+        total_h = available
 
     # Distribute any leftover space evenly across the gaps between boxes,
     # so the grid fills the whole card top-to-bottom instead of leaving one
