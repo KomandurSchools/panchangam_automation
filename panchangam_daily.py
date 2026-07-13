@@ -26,7 +26,21 @@ from PIL import Image, ImageDraw, ImageFont
 IST = timezone(timedelta(hours=5, minutes=30))
 GEONAME_ID = os.environ.get("GEONAME_ID", "1254360")
 APIKEY = os.environ.get("TEXTMEBOT_APIKEY", "")
-RECIPIENTS = [r.strip() for r in os.environ.get("RECIPIENT_NUMBERS", "").split(",") if r.strip()]
+
+def _parse_recipients(raw):
+    # tolerate commas, newlines, semicolons, and stray whitespace between numbers
+    parts = re.split(r'[,\n\r;]+', raw)
+    out = []
+    for p in parts:
+        p = p.strip()
+        if not p:
+            continue
+        if not p.startswith('+'):
+            p = '+' + p.lstrip('+')
+        out.append(p)
+    return out
+
+RECIPIENTS = _parse_recipients(os.environ.get("RECIPIENT_NUMBERS", ""))
 CITY_LABEL_EN = os.environ.get("CITY_LABEL_EN", "Tirupati, AP")
 CITY_LABEL_TE = os.environ.get("CITY_LABEL_TE", "తిరుపతి, ఆం.ప్ర.")
 CITY_LABEL_TA = os.environ.get("CITY_LABEL_TA", "திருப்பதி, ஆ.பி.")
