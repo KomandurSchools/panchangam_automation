@@ -178,8 +178,32 @@ def translate_value(raw, te_map, ta_map):
 def fetch_panchang(date_str):
     """date_str: DD/MM/YYYY. Returns dict of parsed fields (best-effort)."""
     url = f"https://www.drikpanchang.com/panchang/day-panchang.html?geoname-id={GEONAME_ID}&date={date_str}"
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; PanchangamBot/1.0)"}
-    resp = requests.get(url, headers=headers, timeout=30)
+    headers = {
+        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.drikpanchang.com/",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+    }
+    session = requests.Session()
+    session.headers.update(headers)
+
+    last_exc = None
+    resp = None
+    for attempt in range(5):
+        try:
+            resp = session.get(url, timeout=30)
+            if resp.status_code == 200:
+                break
+            print(f"  attempt {attempt+1}: HTTP {resp.status_code}, retrying...", file=sys.stderr)
+        except requests.RequestException as e:
+            last_exc = e
+            print(f"  attempt {attempt+1}: {e}, retrying...", file=sys.stderr)
+        time.sleep(5 * (attempt + 1))  # backoff: 5s, 10s, 15s, 20s, 25s
+    if resp is None:
+        raise last_exc
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
     lines = [l.strip() for l in soup.get_text("\n").split("\n") if l.strip()]
