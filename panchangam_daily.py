@@ -130,6 +130,84 @@ KARANA_TA = {
     "Chatushpada": "சதுஷ்பாதம்", "Naga": "நாகவம்", "Kimstughna": "கிம்ஸ்துக்னம்",
 }
 
+# --------------------------------------------------------------------------
+# Year / Month / Season info (Samvatsara, Masa, Ritu, Ayana) - shown as an
+# extra "day info" box, matching the info card the temple's own manual
+# template includes at the top. Best-effort: these are translated for
+# display but not part of the strict validate_data() fail-safe below,
+# since their source markup on Drik Panchang is a bit less uniform than
+# the core Tithi/Nakshatra/Rahu-Kalam fields.
+# --------------------------------------------------------------------------
+
+MASA_TE = {
+    "Chaitra": "చైత్ర", "Vaishakha": "వైశాఖ", "Jyeshtha": "జ్యేష్ఠ", "Ashadha": "ఆషాఢ",
+    "Shravana": "శ్రావణ", "Bhadrapada": "భాద్రపద", "Ashwin": "ఆశ్వయుజ", "Ashwina": "ఆశ్వయుజ",
+    "Kartika": "కార్తీక", "Margashirsha": "మార్గశిర", "Margashira": "మార్గశిర",
+    "Pausha": "పుష్య", "Magha": "మాఘ", "Phalguna": "ఫాల్గుణ",
+}
+MASA_TA = {
+    "Chaitra": "சைத்திர", "Vaishakha": "வைசாக", "Jyeshtha": "ஜேஷ்ட", "Ashadha": "ஆஷாட",
+    "Shravana": "ஸ்ராவண", "Bhadrapada": "பாத்ரபத", "Ashwin": "ஆஸ்வயுஜ", "Ashwina": "ஆஸ்வயுஜ",
+    "Kartika": "கார்த்திக", "Margashirsha": "மார்கசீர்ஷ", "Margashira": "மார்கசீர்ஷ",
+    "Pausha": "புஷ்ய", "Magha": "மாக", "Phalguna": "பால்குன",
+}
+
+RITU_TE = {
+    "Vasanta": "వసంత ఋతువు", "Grishma": "గ్రీష్మ ఋతువు", "Varsha": "వర్ష ఋతువు",
+    "Sharad": "శరద్ ఋతువు", "Hemant": "హేమంత ఋతువు", "Hemanta": "హేమంత ఋతువు",
+    "Shishira": "శిశిర ఋతువు",
+}
+RITU_TA = {
+    "Vasanta": "வசந்த ருது", "Grishma": "கிரீஷ்ம ருது", "Varsha": "வர்ஷ ருது",
+    "Sharad": "சரத் ருது", "Hemant": "ஹேமந்த ருது", "Hemanta": "ஹேமந்த ருது",
+    "Shishira": "சிசிர ருது",
+}
+
+AYANA_TE = {"Uttarayana": "ఉత్తరాయణం", "Dakshinayana": "దక్షిణాయనం"}
+AYANA_TA = {"Uttarayana": "உத்தராயணம்", "Dakshinayana": "தட்சிணாயனம்"}
+
+# The 60-year Samvatsara (Hindu year name) cycle - a fixed, unchanging list
+# used in every printed Telugu/Tamil panchangam. Flagging this as the
+# single largest new translation table added here - if any name looks off
+# once you see it rendered, let me know and I'll correct that one entry.
+SAMVATSARA_TE = {
+    "Prabhava": "ప్రభవ", "Vibhava": "విభవ", "Shukla": "శుక్ల", "Pramoda": "ప్రమోద",
+    "Prajapati": "ప్రజాపతి", "Angirasa": "అంగీరస", "Shrimukha": "శ్రీముఖ", "Bhava": "భవ",
+    "Yuva": "యువ", "Dhata": "ధాత", "Ishvara": "ఈశ్వర", "Bahudhanya": "బహుధాన్య",
+    "Pramathi": "ప్రమాథి", "Vikrama": "విక్రమ", "Vrisha": "వృష", "Vishu": "వృష",
+    "Chitrabhanu": "చిత్రభాను", "Subhanu": "సుభాను", "Tarana": "తారణ", "Parthiva": "పార్థివ",
+    "Vyaya": "వ్యయ", "Sarvajit": "సర్వజిత్", "Sarvadhari": "సర్వధారి", "Virodhi": "విరోధి",
+    "Vikriti": "వికృతి", "Khara": "ఖర", "Nandana": "నందన", "Vijaya": "విజయ", "Jaya": "జయ",
+    "Manmatha": "మన్మథ", "Durmukhi": "దుర్ముఖి", "Hevilambi": "హేవిళంబి", "Vilambi": "విళంబి",
+    "Vikari": "వికారి", "Sharvari": "శార్వరి", "Plava": "ప్లవ", "Shubhakrit": "శుభకృత్",
+    "Shobhakrit": "శోభకృత్", "Krodhi": "క్రోధి", "Vishvavasu": "విశ్వావసు", "Parabhava": "పరాభవ",
+    "Plavanga": "ప్లవంగ", "Kilaka": "కీలక", "Saumya": "సౌమ్య", "Sadharana": "సాధారణ",
+    "Virodhikrit": "విరోధికృత్", "Paridhavi": "పరీధావి", "Pramadi": "ప్రమాది", "Pramadicha": "ప్రమాది",
+    "Ananda": "ఆనంద", "Rakshasa": "రాక్షస", "Nala": "నల", "Anala": "నల", "Pingala": "పింగళ",
+    "Kalayukti": "కాళయుక్తి", "Kalayukta": "కాళయుక్తి", "Siddharthi": "సిద్ధార్థి", "Raudra": "రౌద్రి",
+    "Durmati": "దుర్మతి", "Dundubhi": "దుందుభి", "Rudhirodgari": "రుధిరోద్గారి",
+    "Raktakshi": "రక్తాక్షి", "Krodhana": "క్రోధన", "Kshaya": "క్షయ", "Akshaya": "క్షయ",
+}
+SAMVATSARA_TA = {
+    "Prabhava": "பிரபவ", "Vibhava": "விபவ", "Shukla": "சுக்ல", "Pramoda": "பிரமோதூத",
+    "Prajapati": "பிரஜோத்பத்தி", "Angirasa": "ஆங்கீரச", "Shrimukha": "ஸ்ரீமுக", "Bhava": "பவ",
+    "Yuva": "யுவ", "Dhata": "தாது", "Ishvara": "ஈஸ்வர", "Bahudhanya": "வெகுதானிய",
+    "Pramathi": "பிரமாதி", "Vikrama": "விக்கிரம", "Vrisha": "விஷு", "Vishu": "விஷு",
+    "Chitrabhanu": "சித்திரபானு", "Subhanu": "சுபானு", "Tarana": "தாரண", "Parthiva": "பார்த்திப",
+    "Vyaya": "வியய", "Sarvajit": "சர்வசித்து", "Sarvadhari": "சர்வதாரி", "Virodhi": "விரோதி",
+    "Vikriti": "விக்ருதி", "Khara": "கர", "Nandana": "நந்தன", "Vijaya": "விஜய", "Jaya": "ஜய",
+    "Manmatha": "மன்மத", "Durmukhi": "துன்முகி", "Hevilambi": "ஹேவிளம்பி", "Vilambi": "விளம்பி",
+    "Vikari": "விகாரி", "Sharvari": "சார்வரி", "Plava": "பிலவ", "Shubhakrit": "சுபகிருது",
+    "Shobhakrit": "சோபகிருது", "Krodhi": "குரோதி", "Vishvavasu": "விசுவாசு", "Parabhava": "பராபவ",
+    "Plavanga": "பிலவங்க", "Kilaka": "கீலக", "Saumya": "சௌமிய", "Sadharana": "சாதாரண",
+    "Virodhikrit": "விரோதிகிருது", "Paridhavi": "பரிதாபி", "Pramadi": "பிரமாதீச", "Pramadicha": "பிரமாதீச",
+    "Ananda": "ஆனந்த", "Rakshasa": "ராட்சச", "Nala": "நள", "Anala": "நள", "Pingala": "பிங்கள",
+    "Kalayukti": "காளயுக்தி", "Kalayukta": "காளயுக்தி", "Siddharthi": "சித்தார்த்தி", "Raudra": "ரௌத்திரி",
+    "Durmati": "துன்மதி", "Dundubhi": "துந்துபி", "Rudhirodgari": "ருதிரோத்காரி",
+    "Raktakshi": "ரக்தாட்சி", "Krodhana": "குரோதன", "Kshaya": "அட்சய", "Akshaya": "அட்சய",
+}
+
+
 # Drik Panchang's raw English spelling sometimes differs from the spelling
 # South Indian temples/audiences actually use. This maps their spelling to
 # the preferred one for the ENGLISH card only (the Telugu/Tamil cards are
@@ -157,6 +235,8 @@ LABELS = {
         "amrit": "Amrit Kalam", "rahu": "Rahu Kalam", "yama": "Yamagandam",
         "gulika": "Gulikai Kalam", "durmuhurtam": "Durmuhurtam", "varjyam": "Varjyam",
         "upto": "upto", "then": "then", "none_today": "None Today",
+        "yearinfo": "Year & Season", "samvatsara": "Samvatsara", "masa": "Masa",
+        "ritu": "Ritu", "ayana": "Ayana",
     },
     "te": {
         "title": "నేటి పంచాంగం", "core": "పంచాంగ వివరాలు", "sunmoon": "సూర్య చంద్ర సమయాలు",
@@ -167,6 +247,8 @@ LABELS = {
         "amrit": "అమృత కాలం (ఘడియలు)", "rahu": "రాహు కాలం", "yama": "యమగండం",
         "gulika": "గుళిక కాలం", "durmuhurtam": "దుర్ముహూర్తం", "varjyam": "వర్జ్యము",
         "upto": "వరకు", "then": "తర్వాత", "none_today": "ఈరోజు లేదు",
+        "yearinfo": "సంవత్సర వివరాలు", "samvatsara": "సంవత్సరం", "masa": "మాసం",
+        "ritu": "ఋతువు", "ayana": "అయనం",
     },
     "ta": {
         "title": "இன்றைய பஞ்சாங்கம்", "core": "பஞ்சாங்க விவரங்கள்", "sunmoon": "சூரிய சந்திர நேரங்கள்",
@@ -177,6 +259,8 @@ LABELS = {
         "amrit": "அமிர்த காலம்", "rahu": "ராகு காலம்", "yama": "எமகண்டம்",
         "gulika": "குளிகை காலம்", "durmuhurtam": "துர்முகூர்த்தம்", "varjyam": "வர்ஜ்யம்",
         "upto": "வரை", "then": "பின்", "none_today": "இன்று இல்லை",
+        "yearinfo": "ஆண்டு விவரங்கள்", "samvatsara": "வருடம்", "masa": "மாதம்",
+        "ritu": "ருது", "ayana": "அயனம்",
     },
 }
 
@@ -303,6 +387,33 @@ def fetch_panchang(date_str):
     data["durmuhurtam"] = find_value("Dur Muhurtam")
     data["varjyam"] = find_value("Varjyam")
 
+    # --- Best-effort extras: Samvatsara (year name), lunar month, season,
+    # and ayana. These live further down the same page, further from the
+    # nav-menu collision risk that affected Tithi/Nakshatra, but the
+    # Amanta month name in particular needs a bespoke scan (Drik Panchang
+    # lists the Purnimanta name first, then an unrelated "Pravishte/Gate"
+    # field, THEN the Amanta name we actually want) rather than the simple
+    # next-line lookup used above. If anything here can't be found, we
+    # degrade gracefully to "-" rather than failing the whole run - these
+    # aren't covered by validate_data()'s hard fail-safe.
+    samvatsara_raw = find_value("Samvatsara")
+    data["samvatsara"] = samvatsara_raw.split(" upto ")[0].strip() if samvatsara_raw else None
+
+    data["masa"] = None
+    masa_idx = next((i for i, l in enumerate(region) if l == "Chandramasa"), None)
+    if masa_idx is not None:
+        amanta_re = re.compile(r'^([A-Za-z]+)\s*-\s*Amanta$')
+        for j in range(masa_idx + 1, min(masa_idx + 10, len(region))):
+            m = amanta_re.match(region[j])
+            if m:
+                data["masa"] = m.group(1)
+                break
+
+    ritu_raw = find_value("Vedic Ritu")
+    data["ritu"] = ritu_raw.split(" (")[0].strip() if ritu_raw else None
+
+    data["ayana"] = find_value("Vedic Ayana")
+
     missing = [k for k, v in data.items() if not v]
     if missing:
         print(f"WARNING: could not find fields: {missing}", file=sys.stderr)
@@ -390,11 +501,18 @@ SUBTITLE_COL = (95, 40, 130)
 def font_for(lang, weight, size):
     if lang == "en":
         path = "Poppins-Bold.ttf" if weight == "bold" else "Poppins-Medium.ttf"
-    elif lang == "te":
-        path = "NotoSansTelugu-Merged.ttf"
-    else:
-        path = "NotoSansTamil-Merged.ttf"
-    return ImageFont.truetype(os.path.join(FONT_DIR, path), size)
+        return ImageFont.truetype(os.path.join(FONT_DIR, path), size)
+    # Full, official Google Fonts variable-weight files (not the earlier
+    # hand-merged subsets) - complete glyph coverage for the script, Latin,
+    # and digits in one file. Dial in the weight axis so headers/values get
+    # real bold vs regular, matching the English card's hierarchy.
+    path = "NotoSansTelugu-Full.ttf" if lang == "te" else "NotoSansTamil-Full.ttf"
+    font = ImageFont.truetype(os.path.join(FONT_DIR, path), size)
+    try:
+        font.set_variation_by_axes([700 if weight == "bold" else 400, 100])
+    except Exception:
+        pass
+    return font
 
 
 def _wrap_lines(draw, text, font, max_width):
@@ -487,15 +605,26 @@ def render_card(lang, subtitle, blocks, outpath):
     content_top = top + int(24 * scale)
     available = bottom - content_top - subtitle_h
 
-    # Auto-fit: try full size first, shrink ~8% at a time until the whole
-    # grid fits in the available space (floor at 40% of base size).
-    font_scale = 1.0
-    for _ in range(14):
+    # Auto-fit: search for the LARGEST font_scale that still fits (start
+    # big and shrink ~4% at a time), floor at 40% of base size. This finds
+    # the biggest font the content allows on any given day - short values
+    # get a bigger font than a day with several long chained tithi/nakshatra
+    # transitions.
+    font_scale = 1.6
+    total_h = geoms = fonts = pad = col_gap = value_line_h = list_row_h = row_gap = None
+    while True:
         total_h, geoms, fonts, pad, col_gap, value_line_h, list_row_h, row_gap = _measure_blocks(
             d, lang, blocks, content_w, font_scale, scale)
         if total_h <= available or font_scale <= 0.4:
             break
-        font_scale *= 0.92
+        font_scale -= 0.04
+
+    # Distribute any leftover space evenly across the gaps between boxes,
+    # so the grid fills the whole card top-to-bottom instead of leaving one
+    # big blank gap at the end.
+    leftover = max(0, available - total_h)
+    n_gaps = max(len(blocks) - 1, 1)
+    row_gap += leftover / n_gaps
 
     y = content_top
     d.text((W / 2, y), subtitle, font=f_sub, fill=SUBTITLE_COL, anchor="ma")
@@ -546,13 +675,37 @@ def build_images(data, dt_ist):
     te_weekday = WEEKDAY_TE.get(data["weekday_full"], data["weekday_full"])
     ta_weekday = WEEKDAY_TA.get(data["weekday_full"], data["weekday_full"])
 
+    # Best-effort extras - fall back to the raw (untranslated) value if a
+    # name isn't in our table, rather than showing a blank.
+    samv_raw = data.get("samvatsara")
+    te_samv = SAMVATSARA_TE.get(samv_raw, samv_raw) if samv_raw else "-"
+    ta_samv = SAMVATSARA_TA.get(samv_raw, samv_raw) if samv_raw else "-"
+
+    masa_raw = data.get("masa")
+    te_masa = f"{MASA_TE.get(masa_raw, masa_raw)} మాసం" if masa_raw else "-"
+    ta_masa = f"{MASA_TA.get(masa_raw, masa_raw)} மாதம்" if masa_raw else "-"
+    en_masa = masa_raw or "-"
+
+    ritu_raw = data.get("ritu")
+    te_ritu = RITU_TE.get(ritu_raw, f"{ritu_raw} Ritu" if ritu_raw else "-")
+    ta_ritu = RITU_TA.get(ritu_raw, f"{ritu_raw} Ritu" if ritu_raw else "-")
+    en_ritu = ritu_raw or "-"
+
+    ayana_raw = data.get("ayana")
+    te_ayana = AYANA_TE.get(ayana_raw, ayana_raw) if ayana_raw else "-"
+    ta_ayana = AYANA_TA.get(ayana_raw, ayana_raw) if ayana_raw else "-"
+    en_ayana = ayana_raw or "-"
+
     outputs = []
-    for lang, tithi, nak, yoga, kar, paksha, weekday, month_name in [
+    for lang, tithi, nak, yoga, kar, paksha, weekday, month_name, samv, masa, ritu, ayana in [
         ("en", apply_en_overrides(data["tithi"]), apply_en_overrides(data["nakshatra"]),
          apply_en_overrides(data["yoga"]), apply_en_overrides(data["karana"]),
-         data["paksha"], data["weekday_full"], dt_ist.strftime("%B")),
-        ("te", te_tithi, te_nak, te_yoga, te_kar, te_paksha, te_weekday, MONTH_TE[dt_ist.month]),
-        ("ta", ta_tithi, ta_nak, ta_yoga, ta_kar, ta_paksha, ta_weekday, MONTH_TA[dt_ist.month]),
+         data["paksha"], data["weekday_full"], dt_ist.strftime("%B"),
+         (samv_raw or "-"), en_masa, en_ritu, en_ayana),
+        ("te", te_tithi, te_nak, te_yoga, te_kar, te_paksha, te_weekday, MONTH_TE[dt_ist.month],
+         te_samv, te_masa, te_ritu, te_ayana),
+        ("ta", ta_tithi, ta_nak, ta_yoga, ta_kar, ta_paksha, ta_weekday, MONTH_TA[dt_ist.month],
+         ta_samv, ta_masa, ta_ritu, ta_ayana),
     ]:
         L = LABELS[lang]
         city = {"en": CITY_LABEL_EN, "te": CITY_LABEL_TE, "ta": CITY_LABEL_TA}[lang]
@@ -568,6 +721,10 @@ def build_images(data, dt_ist):
         # one bordered box per field, paired up two-to-a-row, plus a single
         # full-width box for the auspicious muhurtas.
         blocks = [
+            {"type": "list", "header": L["yearinfo"], "rows": [
+                (L["samvatsara"], samv), (L["masa"], masa),
+                (L["ritu"], ritu), (L["ayana"], ayana),
+            ]},
             {"type": "list", "header": L["auspicious"], "rows": [
                 (L["brahma"], data["brahma_muhurta"] or "-"),
                 (L["abhijit"], abhijit_val),
