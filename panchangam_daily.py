@@ -222,14 +222,31 @@ def fetch_panchang(date_str):
     soup = BeautifulSoup(resp.text, "html.parser")
     lines = [l.strip() for l in soup.get_text("\n").split("\n") if l.strip()]
 
+    # ------------------------------------------------------------------
+    # The word "Nakshatra" (and a few other field labels) legitimately
+    # appears THREE times on this page: once in the top navigation menu,
+    # once in the real data table, and once in a footer resource-links
+    # list. Blindly taking the first match risks grabbing nav/footer
+    # junk (this is exactly how we once got "Calendars" instead of a
+    # real nakshatra name). To avoid that, we first locate the real data
+    # table by anchoring on "Sunrise and Moonrise" (a heading that only
+    # appears once, right before the actual table) through "Notes:"
+    # (which marks the end of the table, right before footer content),
+    # and restrict all field lookups to that bounded region only.
+    # ------------------------------------------------------------------
+    start_idx = next((i for i, l in enumerate(lines) if l == "Sunrise and Moonrise"), 0)
+    end_idx = next((i for i, l in enumerate(lines) if l.startswith("Notes:")), len(lines))
+    if end_idx <= start_idx:
+        end_idx = len(lines)
+    region = lines[start_idx:end_idx]
+
     def find_value(label, lookahead=6):
-        """Find a line exactly equal to `label`, return the next
-        non-empty, non-icon line(s) joined until we hit something that
-        looks like the next label (heuristic: short line, Title Case)."""
-        for i, l in enumerate(lines):
+        """Find a line exactly equal to `label` within the bounded data
+        region, return the next non-empty, non-icon line after it."""
+        for i, l in enumerate(region):
             if l == label:
-                for j in range(i + 1, min(i + 1 + lookahead, len(lines))):
-                    cand = lines[j]
+                for j in range(i + 1, min(i + 1 + lookahead, len(region))):
+                    cand = region[j]
                     if cand and cand != label and not cand.startswith("ⓘ"):
                         return cand
         return None
@@ -256,7 +273,65 @@ def fetch_panchang(date_str):
     missing = [k for k, v in data.items() if not v]
     if missing:
         print(f"WARNING: could not find fields: {missing}", file=sys.stderr)
+    if start_idx == 0:
+        print("WARNING: could not locate 'Sunrise and Moonrise' anchor - "
+              "parsed from the WHOLE page, results may be unreliable.", file=sys.stderr)
     return data
+
+
+# --------------------------------------------------------------------------
+# Validation - fail-safe so we never send wrong/garbled data
+# --------------------------------------------------------------------------
+
+TIME_RE = re.compile(
+    r'(\d{1,2}:\d{2}\s*(AM|PM))|(\bNone\b)|(\bWhole Day\b)', re.IGNORECASE
+)
+
+def _name_is_known(value, valid_names):
+    if not value:
+        return False
+    for name in valid_names:
+        if re.search(r'\b' + re.escape(name) + r'\b', value):
+            return True
+    return False
+
+def validate_data(data):
+    """Returns (ok: bool, problems: list[str]). Cross-checks every parsed
+    value against known vocab / expected time-pattern so we never send
+    garbage (like a stray nav-menu word) as if it were real panchang
+    data."""
+    problems = []
+
+    name_checks = [
+        ("tithi", TITHI_TE),
+        ("nakshatra", NAKSHATRA_TE),
+        ("yoga", YOGA_TE),
+        ("karana", KARANA_TE),
+    ]
+    for field, valid_map in name_checks:
+        val = data.get(field)
+        if not val:
+            problems.append(f"{field} is missing")
+        elif not _name_is_known(val, valid_map.keys()):
+            problems.append(f"{field}='{val}' does not match any known {field} name")
+
+    if data.get("paksha") not in ("Krishna Paksha", "Shukla Paksha"):
+        problems.append(f"paksha='{data.get('paksha')}' is not a recognized paksha")
+
+    if data.get("weekday_full") not in WEEKDAY_TE:
+        problems.append(f"weekday_full='{data.get('weekday_full')}' is not a recognized weekday")
+
+    time_fields = ["sunrise", "sunset", "moonrise", "moonset", "brahma_muhurta",
+                   "abhijit", "amrit_kalam", "rahu_kalam", "yamaganda",
+                   "gulikai_kalam", "durmuhurtam"]
+    for field in time_fields:
+        val = data.get(field)
+        if not val:
+            problems.append(f"{field} is missing")
+        elif not TIME_RE.search(val):
+            problems.append(f"{field}='{val}' does not look like a valid time")
+
+    return (len(problems) == 0, problems)
 
 
 # --------------------------------------------------------------------------
@@ -411,6 +486,65 @@ def send_image(recipient, apikey, image_path, caption):
     return resp
 
 
+def send_text(recipient, apikey, text):
+    resp = requests.post(
+        "https://api.textmebot.com/send.php",
+        data={"recipient": recipient, "apikey": apikey, "text": text},
+        timeout=30,
+    )
+    print(f"  -> {recipient} (text): HTTP {resp.status_code} {resp.text[:200]}")
+    return resp
+
+
+MAX_ATTEMPTS = 5
+
+
+def fetch_and_validate(date_str, weekday_full):
+    """One full attempt: fetch + parse + validate. Returns (data, None) on
+    success, or (None, error_message) on any failure (network error, or
+    validation failure)."""
+    try:
+        data = fetch_panchang(date_str)
+        data["weekday_full"] = weekday_full
+    except Exception as e:
+        return None, f"fetch error: {e}"
+
+    print("Parsed fields:")
+    for k, v in data.items():
+        print(f"  {k}: {v}")
+
+    ok, problems = validate_data(data)
+    if not ok:
+        return None, "validation failed: " + "; ".join(problems)
+
+    print("Validation passed: all fields look correct.")
+    return data, None
+
+
+def notify_failure(now_ist, last_error):
+    """Best-effort text (not image) to every recipient explaining that
+    today's automated Panchangam could not be sent, so it's clear this
+    is a known failure and not silence."""
+    date_disp = now_ist.strftime("%B %d, %Y")
+    message = (
+        f"Hi, this is Vihari's automated Panchangam system.\n\n"
+        f"Today's Panchangam ({date_disp}) could not be sent after {MAX_ATTEMPTS} attempts "
+        f"due to a technical error:\n{last_error}\n\n"
+        f"Vihari has been notified and will look into it. Sorry for the inconvenience today!\n\n"
+        f"(నమస్తే, ఇది వీహారి యొక్క ఆటోమేటెడ్ పంచాంగం సిస్టమ్. ఈరోజు సాంకేతిక సమస్య వలన పంచాంగం పంపడం సాధ్యం కాలేదు. క్షమించండి.)"
+    )
+    if not RECIPIENTS:
+        print("No RECIPIENT_NUMBERS configured - cannot send failure notice either.", file=sys.stderr)
+        return
+    for recipient in RECIPIENTS:
+        try:
+            print(f"Sending failure notice to {recipient}...")
+            send_text(recipient, APIKEY, message)
+            time.sleep(6)
+        except Exception as e:
+            print(f"  could not even send failure notice to {recipient}: {e}", file=sys.stderr)
+
+
 def main():
     if not APIKEY:
         print("ERROR: TEXTMEBOT_APIKEY is not set.", file=sys.stderr)
@@ -423,13 +557,25 @@ def main():
     date_str = now_ist.strftime("%d/%m/%Y")
     weekday_full = now_ist.strftime("%A")
 
-    print(f"Fetching Panchangam for {date_str} (geoname-id={GEONAME_ID})...")
-    data = fetch_panchang(date_str)
-    data["weekday_full"] = weekday_full
+    data = None
+    last_error = None
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        print(f"=== Attempt {attempt}/{MAX_ATTEMPTS}: fetching Panchangam for {date_str} "
+              f"(geoname-id={GEONAME_ID})... ===")
+        data, last_error = fetch_and_validate(date_str, weekday_full)
+        if data is not None:
+            break
+        print(f"Attempt {attempt} failed: {last_error}", file=sys.stderr)
+        if attempt < MAX_ATTEMPTS:
+            wait = 20 * attempt
+            print(f"Waiting {wait}s before retrying...", file=sys.stderr)
+            time.sleep(wait)
 
-    print("Parsed fields:")
-    for k, v in data.items():
-        print(f"  {k}: {v}")
+    if data is None:
+        print(f"All {MAX_ATTEMPTS} attempts failed. Notifying recipients and giving up "
+              f"for today.", file=sys.stderr)
+        notify_failure(now_ist, last_error)
+        sys.exit(1)
 
     print("Rendering images...")
     images = build_images(data, now_ist)
