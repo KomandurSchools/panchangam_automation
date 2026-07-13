@@ -47,7 +47,6 @@ CITY_LABEL_TA = os.environ.get("CITY_LABEL_TA", "திருப்பதி, �
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FONT_DIR = os.path.join(HERE, "fonts")
-
 # --------------------------------------------------------------------------
 # Translation tables (standard, fixed Panchangam vocabulary - these never
 # change, only which entry is "today's" value changes day to day)
@@ -129,7 +128,6 @@ KARANA_TA = {
     "Garaja": "கரஜம்", "Vanija": "வணிஜம்", "Vishti": "பத்திரை", "Shakuni": "சகுனி",
     "Chatushpada": "சதுஷ்பாதம்", "Naga": "நாகவம்", "Kimstughna": "கிம்ஸ்துக்னம்",
 }
-
 LABELS = {
     "en": {
         "title": "Today's Panchangam", "core": "Panchang Core", "sunmoon": "Sun & Moon",
@@ -240,15 +238,30 @@ def fetch_panchang(date_str):
         end_idx = len(lines)
     region = lines[start_idx:end_idx]
 
+    # Drik Panchang sometimes renders a time and its AM/PM marker as two
+    # separate text nodes (e.g. "05:52" then "AM" on their own lines), and
+    # time ranges like "12:17 PM to 01:54 PM" can likewise be split into
+    # several fragments ("12:17", "PM", "to", "01:54", "PM"). After finding
+    # the first fragment of a value, we glue on any immediately-following
+    # short continuation fragments (a bare AM/PM marker, "to", or another
+    # bare H:MM) so values never get truncated mid-time.
+    _FRAG_CONTINUE_RE = re.compile(r'^(AM|PM|to|\d{1,2}:\d{2})$', re.IGNORECASE)
+
     def find_value(label, lookahead=6):
         """Find a line exactly equal to `label` within the bounded data
-        region, return the next non-empty, non-icon line after it."""
+        region, return the next non-empty, non-icon line after it, with
+        any split-off AM/PM/"to"/time continuation fragments reattached."""
         for i, l in enumerate(region):
             if l == label:
                 for j in range(i + 1, min(i + 1 + lookahead, len(region))):
                     cand = region[j]
                     if cand and cand != label and not cand.startswith("ⓘ"):
-                        return cand
+                        frags = [cand]
+                        k = j + 1
+                        while k < len(region) and k < j + 8 and _FRAG_CONTINUE_RE.match(region[k] or ""):
+                            frags.append(region[k])
+                            k += 1
+                        return re.sub(r'\s+', ' ', " ".join(frags)).strip()
         return None
 
     data = {}
