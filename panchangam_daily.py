@@ -53,6 +53,26 @@ FONT_DIR = os.path.join(HERE, "fonts")
 # change, only which entry is "today's" value changes day to day)
 # --------------------------------------------------------------------------
 
+# Rahu Kalam / Yamagandam / Gulika Kalam - the standard fixed per-weekday
+# table (the daylight period divided into eight ~90-minute segments,
+# assigned to weekdays in a fixed rotation). This is what most familiar
+# calendar apps show, including the user's trusted reference app - which
+# was confirmed side-by-side to match this table exactly (Tuesday: Rahu
+# Kalam 3:00-4:30 PM, Yamagandam 9:00-10:30 AM), and is DIFFERENT from Drik
+# Panchang's own sunrise-adjusted numbers for these three fields
+# specifically. Computing these ourselves instead of scraping them also
+# removes a layer of parsing risk for three of the most safety-relevant
+# fields on the card.
+FIXED_KALAM_TABLE = {
+    "Sunday":    {"rahu": ("04:30 PM", "06:00 PM"), "yama": ("12:00 PM", "01:30 PM"), "gulika": ("03:00 PM", "04:30 PM")},
+    "Monday":    {"rahu": ("07:30 AM", "09:00 AM"), "yama": ("10:30 AM", "12:00 PM"), "gulika": ("09:00 AM", "10:30 AM")},
+    "Tuesday":   {"rahu": ("03:00 PM", "04:30 PM"), "yama": ("09:00 AM", "10:30 AM"), "gulika": ("12:00 PM", "01:30 PM")},
+    "Wednesday": {"rahu": ("12:00 PM", "01:30 PM"), "yama": ("07:30 AM", "09:00 AM"), "gulika": ("10:30 AM", "12:00 PM")},
+    "Thursday":  {"rahu": ("01:30 PM", "03:00 PM"), "yama": ("06:00 AM", "07:30 AM"), "gulika": ("09:00 AM", "10:30 AM")},
+    "Friday":    {"rahu": ("10:30 AM", "12:00 PM"), "yama": ("03:00 PM", "04:30 PM"), "gulika": ("07:30 AM", "09:00 AM")},
+    "Saturday":  {"rahu": ("09:00 AM", "10:30 AM"), "yama": ("01:30 PM", "03:00 PM"), "gulika": ("06:00 AM", "07:30 AM")},
+}
+
 WEEKDAY_TE = {
     "Sunday": "ఆదివారం", "Monday": "సోమవారం", "Tuesday": "మంగళవారం",
     "Wednesday": "బుధవారం", "Thursday": "గురువారం", "Friday": "శుక్రవారం",
@@ -961,6 +981,16 @@ def fetch_and_validate(date_str, weekday_full):
         data["weekday_full"] = weekday_full
     except Exception as e:
         return None, f"fetch error: {e}"
+
+    # Override the scraped Rahu Kalam / Yamagandam / Gulika Kalam with the
+    # fixed per-weekday table - see FIXED_KALAM_TABLE above for why. This
+    # also means these three fields can no longer fail validation due to a
+    # scraping/parsing issue, since they're now computed, not scraped.
+    fixed = FIXED_KALAM_TABLE.get(weekday_full)
+    if fixed:
+        data["rahu_kalam"] = f"{fixed['rahu'][0]} to {fixed['rahu'][1]}"
+        data["yamaganda"] = f"{fixed['yama'][0]} to {fixed['yama'][1]}"
+        data["gulikai_kalam"] = f"{fixed['gulika'][0]} to {fixed['gulika'][1]}"
 
     print("Parsed fields:")
     for k, v in data.items():
