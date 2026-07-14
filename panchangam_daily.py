@@ -122,12 +122,12 @@ YOGA_TA = {
 KARANA_TE = {
     "Bava": "బవ", "Balava": "బాలవ", "Kaulava": "కౌలవ", "Taitila": "తైతిల",
     "Garaja": "గరజ", "Vanija": "వణిజ", "Vishti": "భద్ర", "Shakuni": "శకుని",
-    "Chatushpada": "చతుష్పాద", "Naga": "నాగ", "Kimstughna": "కింస్తుఘ్న",
+    "Chatushpada": "చతుష్పాద", "Naga": "నాగ", "Nagava": "నాగ", "Kimstughna": "కింస్తుఘ్న",
 }
 KARANA_TA = {
     "Bava": "பவம்", "Balava": "பாலவம்", "Kaulava": "கௌலவம்", "Taitila": "தைதிலம்",
     "Garaja": "கரஜம்", "Vanija": "வணிஜம்", "Vishti": "பத்திரை", "Shakuni": "சகுனி",
-    "Chatushpada": "சதுஷ்பாதம்", "Naga": "நாகவம்", "Kimstughna": "கிம்ஸ்துக்னம்",
+    "Chatushpada": "சதுஷ்பாதம்", "Naga": "நாகவம்", "Nagava": "நாகவம்", "Kimstughna": "கிம்ஸ்துக்னம்",
 }
 
 # --------------------------------------------------------------------------
@@ -547,7 +547,8 @@ def fetch_panchang(date_str):
 # --------------------------------------------------------------------------
 
 TIME_RE = re.compile(
-    r'(\d{1,2}:\d{2}\s*(AM|PM))|(\bNone\b)|(\bWhole Day\b)', re.IGNORECASE
+    r'(\d{1,2}:\d{2}\s*(AM|PM))|(\bNone\b)|(\bWhole Day\b)|(\bNo Moon(rise|set)\b)|(\bNo Sun(rise|set)\b)',
+    re.IGNORECASE
 )
 
 def _name_is_known(value, valid_names):
@@ -876,6 +877,19 @@ def build_images(data, dt_ist):
 
         abhijit_val = data["abhijit"] if data["abhijit"] and data["abhijit"].lower() != "none" else L["none_today"]
 
+        def _na_if_absent(val):
+            # Some days genuinely have no moonrise/moonset within the
+            # calendar day window (common near Amavasya) and Drik Panchang
+            # says so in plain English regardless of card language - show
+            # the same "not applicable today" phrasing used elsewhere
+            # instead of leaving untranslated English sitting in a TE/TA card.
+            if val and re.match(r'^no (moon|sun)(rise|set)$', val.strip(), re.IGNORECASE):
+                return L["none_today"]
+            return val
+
+        moonrise_val = _na_if_absent(data["moonrise"]) or "-"
+        moonset_val = _na_if_absent(data["moonset"]) or "-"
+
         # 2-column boxed grid, styled after the temple's own manual layout:
         # one bordered box per field, paired up two-to-a-row, plus a single
         # full-width box for the auspicious muhurtas.
@@ -897,7 +911,7 @@ def build_images(data, dt_ist):
             {"type": "pair", "left": (L["tithi"], tithi or "-", "neutral"), "right": (L["nakshatra"], nak or "-", "neutral")},
             {"type": "pair", "left": (L["yoga"], yoga or "-", "neutral"), "right": (L["karana"], kar or "-", "neutral")},
             {"type": "pair", "left": (L["sunrise"], data["sunrise"] or "-", "neutral"), "right": (L["sunset"], data["sunset"] or "-", "neutral")},
-            {"type": "pair", "left": (L["moonrise"], data["moonrise"] or "-", "neutral"), "right": (L["moonset"], data["moonset"] or "-", "neutral")},
+            {"type": "pair", "left": (L["moonrise"], moonrise_val, "neutral"), "right": (L["moonset"], moonset_val, "neutral")},
             {"type": "pair", "left": (L["rahu"], data["rahu_kalam"] or "-", "warn"), "right": (L["yama"], data["yamaganda"] or "-", "warn")},
             {"type": "pair", "left": (L["gulika"], data["gulikai_kalam"] or "-", "warn"), "right": (L["durmuhurtam"], data["durmuhurtam"] or "-", "warn")},
             {"type": "pair", "left": (L["varjyam"], data["varjyam"] or "-", "warn"), "right": (L["amrit"], data["amrit_kalam"] or "-", "good")},
