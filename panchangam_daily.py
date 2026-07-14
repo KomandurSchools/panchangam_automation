@@ -696,8 +696,11 @@ def _measure_blocks(draw, lang, blocks, content_w, font_scale, scale):
     value_size = max(int(38 * scale * font_scale), 14)
     list_header_size = max(int(42 * scale * font_scale), 14)
     list_row_size = max(int(36 * scale * font_scale), 14)
-    pad = max(int(14 * scale * font_scale), 6)
-    col_gap = max(int(16 * scale * font_scale), 6)
+    # Kept deliberately tight - every pixel of padding/gap here is a pixel
+    # not going to the actual data text. Still enough for clean visual
+    # separation between boxes, just not generous about it.
+    pad = max(int(9 * scale * font_scale), 5)
+    col_gap = max(int(12 * scale * font_scale), 5)
 
     fonts = {
         "header": font_for(lang, "bold", header_size),
@@ -706,8 +709,8 @@ def _measure_blocks(draw, lang, blocks, content_w, font_scale, scale):
         "list_row_lbl": font_for(lang, "medium", list_row_size),
         "list_row_val": font_for(lang, "bold", list_row_size),
     }
-    value_line_h = value_size + int(10 * scale * font_scale)
-    list_row_h = list_row_size + int(16 * scale * font_scale)
+    value_line_h = value_size + int(7 * scale * font_scale)
+    list_row_h = list_row_size + int(10 * scale * font_scale)
 
     geoms = []
     total_h = 0
@@ -729,7 +732,7 @@ def _measure_blocks(draw, lang, blocks, content_w, font_scale, scale):
             geoms.append({"type": "list", "header_h": header_h, "rows_h": rows_h})
             total_h += header_h + rows_h
 
-    row_gap = max(int(16 * scale * font_scale), 6)
+    row_gap = max(int(10 * scale * font_scale), 5)
     total_h += row_gap * max(len(blocks) - 1, 0)
     return total_h, geoms, fonts, pad, col_gap, value_line_h, list_row_h, row_gap
 
@@ -755,26 +758,28 @@ def render_card(lang, subtitle, blocks, outpath):
     content_w = right - left
     scale = W / 1587.0
 
-    subtitle_size = max(int(32 * scale), 14)
+    subtitle_size = max(int(30 * scale), 14)
     f_sub = font_for(lang, "medium", subtitle_size)
-    subtitle_h = subtitle_size + int(30 * scale)
-    content_top = top + int(24 * scale)
+    subtitle_h = subtitle_size + int(16 * scale)
+    content_top = top + int(14 * scale)
     available = bottom - content_top - subtitle_h
 
     # Auto-fit: search for the LARGEST font_scale that still fits (start
-    # big and shrink ~3% at a time), floor at 22% of base size - low enough
-    # that this should only ever bottom out on a genuinely pathological
-    # amount of content. This finds the biggest font the content allows on
-    # any given day - short values get a bigger font than a day with
-    # several long chained tithi/nakshatra transitions.
-    font_scale = 1.6
+    # big and shrink ~2% at a time for fine granularity), floor at 22% of
+    # base size - low enough that this should only ever bottom out on a
+    # genuinely pathological amount of content. This finds the biggest font
+    # the content allows on any given day - short values get a bigger font
+    # than a day with several long chained tithi/nakshatra transitions.
+    # Padding/gaps above are deliberately tight so nearly all of this
+    # search budget goes to the data text itself, not empty space around it.
+    font_scale = 2.0
     total_h = geoms = fonts = pad = col_gap = value_line_h = list_row_h = row_gap = None
     while True:
         total_h, geoms, fonts, pad, col_gap, value_line_h, list_row_h, row_gap = _measure_blocks(
             d, lang, blocks, content_w, font_scale, scale)
         if total_h <= available or font_scale <= 0.22:
             break
-        font_scale -= 0.03
+        font_scale -= 0.02
 
     # Hard safety valve: even at the smallest readable font, an extreme day
     # (many fields all long at once) could in theory still not fit. Rather
