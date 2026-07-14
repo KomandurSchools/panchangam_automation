@@ -483,8 +483,24 @@ def fetch_panchang(date_str):
     # next-line lookup used above. If anything here can't be found, we
     # degrade gracefully to "-" rather than failing the whole run - these
     # aren't covered by validate_data()'s hard fail-safe.
-    samvatsara_raw = find_value("Samvatsara")
-    data["samvatsara"] = samvatsara_raw.split(" upto ")[0].strip() if samvatsara_raw else None
+    # IMPORTANT: the samvatsara (year) NAME must come from Shaka Samvat, not
+    # the generic "Samvatsara" field (which Drik Panchang ties to Vikram
+    # Samvat, a North Indian lunar-calendar system). Telugu Ugadi tradition
+    # follows the Shaka Samvat, and the two systems' 60-year Jupiter cycles
+    # can be several names apart in any given year - e.g. this field once
+    # showed "Siddharthi" (Vikram-based) when the correct Telugu year name
+    # was "Parabhava" (Shaka-based). The Shaka Samvat line looks like
+    # "1948 Parabhava" - a number then the name.
+    shaka_raw = find_value("Shaka Samvat")
+    data["samvatsara"] = None
+    data["shaka_year"] = None
+    if shaka_raw:
+        m = re.match(r'^(\d+)\s+([A-Za-z]+)', shaka_raw.strip())
+        if m:
+            data["shaka_year"] = m.group(1)
+            data["samvatsara"] = m.group(2)
+        else:
+            data["samvatsara"] = shaka_raw.strip()
 
     data["masa"] = None
     masa_idx = next((i for i, l in enumerate(region) if l == "Chandramasa"), None)
@@ -593,13 +609,26 @@ TEMPLATE_PATH = os.path.join(ASSET_DIR, "panchangam_template.jpg")
 # overlaps the bars or leaves too much empty space.
 HEADER_FRAC = 0.11
 FOOTER_FRAC = 0.865
-LEFT_FRAC = 0.06
-RIGHT_FRAC = 0.94
+LEFT_FRAC = 0.045
+RIGHT_FRAC = 0.955
 
-SECTION_COL = (95, 40, 130)     # purple, matches the template's own header/footer bars
-TEXT_COL = (40, 30, 20)
+# Palette: purple stays the "brand" tone (matches the temple's own header/
+# footer, used for neutral/informational boxes), plus two functional
+# accents so a box's color instantly signals what kind of time it is -
+# green for auspicious, red for times to avoid - the same way the original
+# pre-redesign cards color-coded good vs. bad timings. Value text stays a
+# single near-black for maximum readability against white; only the box
+# headers carry color, so the palette varies without ever hurting contrast
+# on the data itself.
+NEUTRAL_COL = (95, 40, 130)     # purple, matches the template's own header/footer bars
+GOOD_COL = (16, 190, 148)      # bright teal-green - auspicious timings
+WARN_COL = (233, 69, 96)       # bright warm red - timings to avoid
+TEXT_COL = (18, 14, 10)         # near-black, max contrast on white
 LINE_COL = (185, 170, 195)
 SUBTITLE_COL = (95, 40, 130)
+
+def _tone_col(tone):
+    return {"good": GOOD_COL, "warn": WARN_COL}.get(tone, NEUTRAL_COL)
 
 def font_for(lang, weight, size):
     if lang == "en":
@@ -642,12 +671,12 @@ def _measure_blocks(draw, lang, blocks, content_w, font_scale, scale):
     """Compute every box's size at a given font_scale WITHOUT drawing
     anything, so render_card can auto-shrink the font until everything
     fits between the template's header and footer bars."""
-    header_size = max(int(34 * scale * font_scale), 14)
-    value_size = max(int(32 * scale * font_scale), 14)
-    list_header_size = max(int(36 * scale * font_scale), 14)
-    list_row_size = max(int(30 * scale * font_scale), 14)
-    pad = max(int(16 * scale * font_scale), 6)
-    col_gap = max(int(18 * scale * font_scale), 6)
+    header_size = max(int(40 * scale * font_scale), 14)
+    value_size = max(int(38 * scale * font_scale), 14)
+    list_header_size = max(int(42 * scale * font_scale), 14)
+    list_row_size = max(int(36 * scale * font_scale), 14)
+    pad = max(int(14 * scale * font_scale), 6)
+    col_gap = max(int(16 * scale * font_scale), 6)
 
     fonts = {
         "header": font_for(lang, "bold", header_size),
@@ -767,8 +796,9 @@ def render_card(lang, subtitle, blocks, outpath):
             box_h = header_h + geom["value_h"]
             for i, side in enumerate(("left", "right")):
                 bx = left + i * (box_w + col_gap)
+                tone = blk[side][2] if len(blk[side]) > 2 else "neutral"
                 d.rectangle([bx, y, bx + box_w, y + box_h], outline=LINE_COL, width=border_w, fill=(255, 255, 255))
-                d.rectangle([bx, y, bx + box_w, y + header_h], fill=SECTION_COL)
+                d.rectangle([bx, y, bx + box_w, y + header_h], fill=_tone_col(tone))
                 d.text((bx + box_w / 2, y + header_h / 2), blk[side][0], font=fonts["header"],
                        fill=(255, 255, 255), anchor="mm")
                 ty = y + header_h + pad
@@ -780,7 +810,7 @@ def render_card(lang, subtitle, blocks, outpath):
             header_h = geom["header_h"]
             box_h = header_h + geom["rows_h"]
             d.rectangle([left, y, right, y + box_h], outline=LINE_COL, width=border_w, fill=(255, 255, 255))
-            d.rectangle([left, y, right, y + header_h], fill=SECTION_COL)
+            d.rectangle([left, y, right, y + header_h], fill=_tone_col(blk.get("tone", "neutral")))
             d.text((left + content_w / 2, y + header_h / 2), blk["header"], font=fonts["list_header"],
                    fill=(255, 255, 255), anchor="mm")
             ry = y + header_h + pad
@@ -849,22 +879,28 @@ def build_images(data, dt_ist):
         # 2-column boxed grid, styled after the temple's own manual layout:
         # one bordered box per field, paired up two-to-a-row, plus a single
         # full-width box for the auspicious muhurtas.
+        # Each box carries a "tone" that colors its header: purple/neutral
+        # for identifying info, green/"good" for auspicious timings, red/
+        # "warn" for timings to avoid - a functional palette (glance at the
+        # color, know what kind of time it is), not decoration for its own
+        # sake. Varjyam and Amrit Kalam share a row but have opposite
+        # meanings, so tone is set per box, not per row.
         blocks = [
-            {"type": "list", "header": L["yearinfo"], "rows": [
+            {"type": "list", "tone": "neutral", "header": L["yearinfo"], "rows": [
                 (L["samvatsara"], samv), (L["masa"], masa),
                 (L["ritu"], ritu), (L["ayana"], ayana),
             ]},
-            {"type": "list", "header": L["auspicious"], "rows": [
+            {"type": "list", "tone": "good", "header": L["auspicious"], "rows": [
                 (L["brahma"], data["brahma_muhurta"] or "-"),
                 (L["abhijit"], abhijit_val),
             ]},
-            {"type": "pair", "left": (L["tithi"], tithi or "-"), "right": (L["nakshatra"], nak or "-")},
-            {"type": "pair", "left": (L["yoga"], yoga or "-"), "right": (L["karana"], kar or "-")},
-            {"type": "pair", "left": (L["sunrise"], data["sunrise"] or "-"), "right": (L["sunset"], data["sunset"] or "-")},
-            {"type": "pair", "left": (L["moonrise"], data["moonrise"] or "-"), "right": (L["moonset"], data["moonset"] or "-")},
-            {"type": "pair", "left": (L["rahu"], data["rahu_kalam"] or "-"), "right": (L["yama"], data["yamaganda"] or "-")},
-            {"type": "pair", "left": (L["gulika"], data["gulikai_kalam"] or "-"), "right": (L["durmuhurtam"], data["durmuhurtam"] or "-")},
-            {"type": "pair", "left": (L["varjyam"], data["varjyam"] or "-"), "right": (L["amrit"], data["amrit_kalam"] or "-")},
+            {"type": "pair", "left": (L["tithi"], tithi or "-", "neutral"), "right": (L["nakshatra"], nak or "-", "neutral")},
+            {"type": "pair", "left": (L["yoga"], yoga or "-", "neutral"), "right": (L["karana"], kar or "-", "neutral")},
+            {"type": "pair", "left": (L["sunrise"], data["sunrise"] or "-", "neutral"), "right": (L["sunset"], data["sunset"] or "-", "neutral")},
+            {"type": "pair", "left": (L["moonrise"], data["moonrise"] or "-", "neutral"), "right": (L["moonset"], data["moonset"] or "-", "neutral")},
+            {"type": "pair", "left": (L["rahu"], data["rahu_kalam"] or "-", "warn"), "right": (L["yama"], data["yamaganda"] or "-", "warn")},
+            {"type": "pair", "left": (L["gulika"], data["gulikai_kalam"] or "-", "warn"), "right": (L["durmuhurtam"], data["durmuhurtam"] or "-", "warn")},
+            {"type": "pair", "left": (L["varjyam"], data["varjyam"] or "-", "warn"), "right": (L["amrit"], data["amrit_kalam"] or "-", "good")},
         ]
 
         outpath = os.path.join(HERE, f"panchangam_{lang}.jpg")
