@@ -2,8 +2,12 @@ name: Daily Panchangam WhatsApp Send
 
 on:
   schedule:
-    # 00:00 UTC = 05:30 AM IST, every day
-    - cron: '0 0 * * *'
+    # 23:57 UTC = 05:27 AM IST, every day. Deliberately NOT on the exact
+    # hour (00:00 UTC / 5:30 sharp) - GitHub explicitly documents that
+    # schedules firing exactly on the hour are the most likely to be
+    # delayed or skipped, since that's when the most jobs across all of
+    # GitHub queue up at once. A few minutes off the hour avoids that.
+    - cron: '57 23 * * *'
   workflow_dispatch: {}   # lets you click "Run workflow" manually to test
 
 jobs:
