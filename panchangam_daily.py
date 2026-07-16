@@ -251,7 +251,7 @@ LABELS = {
         "auspicious": "Auspicious Timings", "inauspicious": "Inauspicious Timings",
         "tithi": "Tithi", "nakshatra": "Nakshatra", "yoga": "Yoga", "karana": "Karana",
         "paksha": "Paksha", "sunrise": "Sunrise", "sunset": "Sunset", "moonrise": "Moonrise",
-        "moonset": "Moonset", "brahma": "Brahma Muhurta", "abhijit": "Abhijit Muhurta",
+        "moonset": "Moonset", "brahma": "Brahma Muhurtham", "abhijit": "Abhijit Muhurtham",
         "amrit": "Amrit Kalam", "rahu": "Rahu Kalam", "yama": "Yamagandam",
         "gulika": "Gulikai Kalam", "durmuhurtam": "Durmuhurtam", "varjyam": "Varjyam",
         "upto": "upto", "then": "then", "none_today": "None Today",
@@ -298,7 +298,15 @@ def translate_value(raw, te_map, ta_map):
         # sort by length desc so multi-word names match before substrings
         for en, native in sorted(mapping.items(), key=lambda x: -len(x[0])):
             text = re.sub(r'\b' + re.escape(en) + r'\b', native, text)
-        text = re.sub(r'\bupto\b', upto_word, text)
+        # Telugu/Tamil are SOV languages: "upto TIME" has to become
+        # "TIME <upto_word>" (e.g. "06:28 PM వరకు", not "వరకు 06:28 PM")
+        # to read grammatically - a straight word-for-word substitution in
+        # the English word order is wrong. Swap the token order here.
+        text = re.sub(
+            r'\bupto\b\s*(\d{1,2}:\d{2}\s*(?:AM|PM))',
+            lambda m: f"{m.group(1)} {upto_word}",
+            text, flags=re.IGNORECASE,
+        )
         text = re.sub(r'\bthen\b', then_word, text)
         return text
     te = sub_all(raw, te_map, LABELS["te"]["upto"], LABELS["te"]["then"])
@@ -1009,17 +1017,17 @@ def fetch_and_validate(date_str, weekday_full):
     return data, None
 
 
-def notify_failure(now_ist, last_error):
+def notify_failure(target_dt, last_error):
     """Best-effort text (not image) to every recipient explaining that
-    today's automated Panchangam could not be sent, so it's clear this
-    is a known failure and not silence."""
-    date_disp = now_ist.strftime("%B %d, %Y")
+    the automated Panchangam for `target_dt` could not be sent, so it's
+    clear this is a known failure and not silence."""
+    date_disp = target_dt.strftime("%B %d, %Y")
     message = (
         f"Hi, this is Vihari's automated Panchangam system.\n\n"
-        f"Today's Panchangam ({date_disp}) could not be sent after {MAX_ATTEMPTS} attempts "
+        f"The Panchangam for {date_disp} could not be sent after {MAX_ATTEMPTS} attempts "
         f"due to a technical error:\n{last_error}\n\n"
-        f"Vihari has been notified and will look into it. Sorry for the inconvenience today!\n\n"
-        f"(నమస్తే, ఇది వీహారి యొక్క ఆటోమేటెడ్ పంచాంగం సిస్టమ్. ఈరోజు సాంకేతిక సమస్య వలన పంచాంగం పంపడం సాధ్యం కాలేదు. క్షమించండి.)"
+        f"Vihari has been notified and will look into it. Sorry for the inconvenience!\n\n"
+        f"(నమస్తే, ఇది వీహారి యొక్క ఆటోమేటెడ్ పంచాంగం సిస్టమ్. సాంకేతిక సమస్య వలన పంచాంగం పంపడం సాధ్యం కాలేదు. క్షమించండి.)"
     )
     if not RECIPIENTS:
         print("No RECIPIENT_NUMBERS configured - cannot send failure notice either.", file=sys.stderr)
@@ -1041,9 +1049,15 @@ def main():
         print("ERROR: RECIPIENT_NUMBERS is not set.", file=sys.stderr)
         sys.exit(1)
 
+    # This job runs the NIGHT BEFORE (9:45 PM IST) so the family has
+    # tomorrow's Panchangam in hand before they need it early the next
+    # morning, rather than racing a 5 AM delivery window. So the
+    # Panchangam we fetch/render/send is always for IST-tomorrow, not
+    # today, relative to whenever this script actually executes.
     now_ist = datetime.now(IST)
-    date_str = now_ist.strftime("%d/%m/%Y")
-    weekday_full = now_ist.strftime("%A")
+    target_dt = now_ist + timedelta(days=1)
+    date_str = target_dt.strftime("%d/%m/%Y")
+    weekday_full = target_dt.strftime("%A")
 
     data = None
     last_error = None
@@ -1061,17 +1075,17 @@ def main():
 
     if data is None:
         print(f"All {MAX_ATTEMPTS} attempts failed. Notifying recipients and giving up "
-              f"for today.", file=sys.stderr)
-        notify_failure(now_ist, last_error)
+              f"for {date_str}.", file=sys.stderr)
+        notify_failure(target_dt, last_error)
         sys.exit(1)
 
     print("Rendering images...")
-    images = build_images(data, now_ist)
+    images = build_images(data, target_dt)
 
     captions = {
-        "en": f"Panchangam (English) - {now_ist.strftime('%B %d, %Y')}",
-        "te": f"పంచాంగం (తెలుగు) - {now_ist.strftime('%d/%m/%Y')}",
-        "ta": f"பஞ்சாங்கம் (தமிழ்) - {now_ist.strftime('%d/%m/%Y')}",
+        "en": f"Panchangam (English) - {target_dt.strftime('%B %d, %Y')}",
+        "te": f"పంచాంగం (తెలుగు) - {target_dt.strftime('%d/%m/%Y')}",
+        "ta": f"பஞ்சாங்கம் (தமிழ்) - {target_dt.strftime('%d/%m/%Y')}",
     }
 
     for recipient in RECIPIENTS:
