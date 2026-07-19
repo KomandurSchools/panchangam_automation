@@ -659,13 +659,12 @@ TEMPLATE_PATH = os.path.join(ASSET_DIR, "panchangam_template.jpg")
 # footer bars, based on the supplied template. Tweak these if content ever
 # overlaps the bars or leaves too much empty space.
 
-# Measured directly against the template image's actual purple header/footer
-# bands (top band ends at 10.0% of height, bottom band starts at 87.5%) -
-# tightened from the previous 0.11/0.865 to reclaim every safe pixel of
-# vertical space for the data text, while keeping a real (not zero) safety
-# margin so content still never touches the temple's banner artwork.
-HEADER_FRAC = 0.104
-FOOTER_FRAC = 0.874
+# Reverted back to the original, known-safe values - a prior attempt to
+# reclaim a few extra pixels here (measuring only the flat template color
+# band, not the actual drawn header/footer graphics on top of it) caused
+# real overflow in production.
+HEADER_FRAC = 0.11
+FOOTER_FRAC = 0.865
 LEFT_FRAC = 0.045
 RIGHT_FRAC = 0.955
 
@@ -728,14 +727,10 @@ def _measure_blocks(draw, lang, blocks, content_w, font_scale, scale):
     """Compute every box's size at a given font_scale WITHOUT drawing
     anything, so render_card can auto-shrink the font until everything
     fits between the template's header and footer bars."""
-    # Labels (header_size / list_header_size) are short, familiar words -
-    # "Tithi", "Rahu Kalam" - and don't need to be huge. The actual data
-    # (value_size / list_row_size) is what people are opening this image to
-    # read at a glance, so it gets a noticeably bigger share of the budget.
-    header_size = max(int(30 * scale * font_scale), 14)
-    value_size = max(int(48 * scale * font_scale), 14)
-    list_header_size = max(int(32 * scale * font_scale), 14)
-    list_row_size = max(int(46 * scale * font_scale), 14)
+    header_size = max(int(40 * scale * font_scale), 14)
+    value_size = max(int(38 * scale * font_scale), 14)
+    list_header_size = max(int(42 * scale * font_scale), 14)
+    list_row_size = max(int(36 * scale * font_scale), 14)
     # Kept deliberately tight - every pixel of padding/gap here is a pixel
     # not going to the actual data text. Still enough for clean visual
     # separation between boxes, just not generous about it.
@@ -798,7 +793,7 @@ def render_card(lang, subtitle, blocks, outpath):
     content_w = right - left
     scale = W / 1587.0
 
-    subtitle_size = max(int(30 * scale), 14)
+    subtitle_size = max(int(42 * scale), 14)  # the date/day/location line
     f_sub = font_for(lang, "medium", subtitle_size)
     subtitle_h = subtitle_size + int(16 * scale)
     content_top = top + int(14 * scale)
