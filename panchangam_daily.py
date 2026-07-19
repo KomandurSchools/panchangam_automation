@@ -297,6 +297,8 @@ MONTH_TE = {1:"జనవరి",2:"ఫిబ్రవరి",3:"మార్చ�
             8:"ఆగస్టు",9:"సెప్టెంబర్",10:"అక్టోబర్",11:"నవంబర్",12:"డిసెంబర్"}
 MONTH_TA = {1:"ஜனவரி",2:"பிப்ரவரி",3:"மார்ச்",4:"ஏப்ரல்",5:"மே",6:"ஜூன்",7:"ஜூலை",
             8:"ஆகஸ்ட்",9:"செப்டம்பர்",10:"அக்டோபர்",11:"நவம்பர்",12:"டிசம்பர்"}
+MONTH_ABBR_TO_NUM = {"Jan":1,"Feb":2,"Mar":3,"Apr":4,"May":5,"Jun":6,"Jul":7,
+                      "Aug":8,"Sep":9,"Oct":10,"Nov":11,"Dec":12}
 
 
 def translate_value(raw, te_map, ta_map):
@@ -318,8 +320,19 @@ def translate_value(raw, te_map, ta_map):
         )
         text = re.sub(r'\bthen\b', then_word, text)
         return text
+
+    def sub_months(text, month_map):
+        # Cross-day date tags (e.g. "Jul 21") should read in the native
+        # script too, not drop into raw English mid-sentence.
+        def repl(m):
+            num = MONTH_ABBR_TO_NUM.get(m.group(1))
+            return f"{month_map[num]} {m.group(2)}" if num else m.group(0)
+        return re.sub(r'\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{1,2})\b', repl, text)
+
     te = sub_all(raw, te_map, LABELS["te"]["upto"], LABELS["te"]["then"])
     ta = sub_all(raw, ta_map, LABELS["ta"]["upto"], LABELS["ta"]["then"])
+    te = sub_months(te, MONTH_TE)
+    ta = sub_months(ta, MONTH_TA)
     return te, ta
 
 
@@ -1115,12 +1128,24 @@ def compute_tithi_chain(y, m, d):
         segments.append([TITHI_NAMES[idx], None])
         t = b
 
+    # If a transition falls after midnight but before the NEXT sunrise, it's
+    # still part of this card's Panchangam day (which runs sunrise-to-
+    # sunrise, not midnight-to-midnight) - but its clock time alone
+    # ("04:03 AM") would look like it happened earlier TODAY if shown
+    # without a date tag, when it actually happens tomorrow morning. Drik
+    # Panchang itself disambiguates this with a explicit date suffix (e.g.
+    # "upto 03:29 AM, Jul 20"); do the same here rather than silently
+    # dropping it, which would misrepresent how long the tithi actually
+    # lasts (this was a real bug caught via a July 20 card showing an
+    # apparent 33-minute Tithi that was actually ~24.5 hours).
+    card_date = midnight.date()
     parts = []
     for name, end in segments:
         if end is None:
             parts.append(name)
         else:
-            parts.append(f"{name} upto {end.strftime('%I:%M %p')}, then")
+            tag = "" if end.date() == card_date else f", {end.strftime('%b %d')}"
+            parts.append(f"{name} upto {end.strftime('%I:%M %p')}{tag}, then")
     return " ".join(parts)
 
 
