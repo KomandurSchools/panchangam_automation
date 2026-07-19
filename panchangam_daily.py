@@ -793,9 +793,23 @@ def render_card(lang, subtitle, blocks, outpath):
     content_w = right - left
     scale = W / 1587.0
 
-    subtitle_size = max(int(42 * scale), 14)  # the date/day/location line
-    f_sub = font_for(lang, "medium", subtitle_size)
-    subtitle_h = subtitle_size + int(16 * scale)
+    # The date/day/location line - deliberately the single biggest, boldest
+    # piece of text on the whole card, well above the size any grid data
+    # ever reaches, so it's the first thing the eye lands on. Shrink it down
+    # from that target size if needed so it never runs past the card's
+    # edges - Tamil in particular renders noticeably wider than English at
+    # the same point size for this string.
+    subtitle_size = max(int(64 * scale), 14)
+    subtitle_margin_w = int(content_w * 0.96)
+    while subtitle_size > 14:
+        f_sub = font_for(lang, "bold", subtitle_size)
+        bbox = d.textbbox((0, 0), subtitle, font=f_sub)
+        if (bbox[2] - bbox[0]) <= subtitle_margin_w:
+            break
+        subtitle_size -= 2
+    else:
+        f_sub = font_for(lang, "bold", subtitle_size)
+    subtitle_h = subtitle_size + int(20 * scale)
     content_top = top + int(14 * scale)
     available = bottom - content_top - subtitle_h
 
