@@ -19,12 +19,21 @@ import sys
 import time
 import base64
 import requests
+import swisseph as swe
 from datetime import datetime, timedelta, timezone
 from bs4 import BeautifulSoup
 from PIL import Image, ImageDraw, ImageFont
 
 IST = timezone(timedelta(hours=5, minutes=30))
 GEONAME_ID = os.environ.get("GEONAME_ID", "1254360")
+
+# Tirupati, Andhra Pradesh - 13 deg 38' 07" N, 79 deg 25' 11" E (matches the
+# location Drik Panchang itself resolves geoname-id 1254360 to). Used by the
+# self-contained ephemeris-based Tithi engine below, so Tithi no longer
+# depends on scraping drikpanchang.com's rendered HTML for this field.
+TIRUPATI_LAT = 13.635278
+TIRUPATI_LON = 79.419722
+swe.set_sid_mode(swe.SIDM_LAHIRI)  # Lahiri ayanamsha - same standard Drik Panchang uses
 APIKEY = os.environ.get("TEXTMEBOT_APIKEY", "")
 
 def _parse_recipients(raw):
@@ -982,6 +991,139 @@ def send_text(recipient, apikey, text):
     return resp
 
 
+# TextMeBot returns HTTP 200 even when a message was NOT actually delivered
+# (e.g. an expired trial/subscription, or a bad API key) - the real failure
+# only shows up in the response body text, not the status code. Without this
+# check, the script (and the GitHub Actions job) reports "success" while
+# nothing actually reaches WhatsApp, which is worse than an honest failure -
+# this is exactly what happened when the TextMeBot trial expired.
+_SEND_FAILURE_SIGNATURES = (
+    "trial period is over",
+    "click here to subscribe",
+    "invalid apikey",
+    "invalid api key",
+)
+
+
+def _send_ok(resp):
+    """True only if TextMeBot's response actually indicates delivery, not
+    just an HTTP 200."""
+    if resp is None or resp.status_code != 200:
+        return False
+    body = resp.text.lower()
+    return not any(sig in body for sig in _SEND_FAILURE_SIGNATURES)
+
+
+# --------------------------------------------------------------------------
+# Ephemeris-based Tithi engine
+# --------------------------------------------------------------------------
+# Tithi used to come from scraping drikpanchang.com's rendered HTML, which
+# was fragile (see the chain-parsing bugs fixed earlier) and gave us no way
+# to independently verify correctness. This computes Tithi directly from the
+# Sun and Moon's true sidereal positions (Swiss Ephemeris, Lahiri ayanamsha -
+# the same standard Drik Panchang itself uses), verified to match Drik
+# Panchang's own published Tithi transition times to within about a minute
+# across multiple test dates. It follows the same sunrise-to-sunrise day
+# convention Drik Panchang uses: the Tithi named for a given date is the one
+# active AT that date's sunrise, plus any transition(s) before the next
+# sunrise.
+
+TITHI_NAMES = [
+    "Pratipada", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami",
+    "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Purnima",
+    "Pratipada", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami",
+    "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Amavasya",
+]
+
+
+def _jd_from_ist(dt_ist):
+    dt_utc = dt_ist.astimezone(timezone.utc)
+    return swe.julday(dt_utc.year, dt_utc.month, dt_utc.day,
+                       dt_utc.hour + dt_utc.minute / 60 + dt_utc.second / 3600)
+
+
+def _jd_to_ist(jd):
+    y, m, d, h = swe.revjul(jd)
+    hh = int(h)
+    mm = int((h - hh) * 60)
+    ss = round((((h - hh) * 60) - mm) * 60)
+    if ss == 60:
+        ss = 0
+        mm += 1
+    if mm == 60:
+        mm = 0
+        hh += 1
+    dt_utc = datetime(y, m, d, hh, mm, ss, tzinfo=timezone.utc)
+    return dt_utc.astimezone(IST)
+
+
+def _sunrise_ist(local_midnight_ist):
+    jd = _jd_from_ist(local_midnight_ist)
+    _, tret = swe.rise_trans(jd, swe.SUN, swe.CALC_RISE, (TIRUPATI_LON, TIRUPATI_LAT, 0))
+    return _jd_to_ist(tret[0])
+
+
+def _tithi_angle(dt_ist):
+    jd = _jd_from_ist(dt_ist)
+    moon, _ = swe.calc_ut(jd, swe.MOON, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
+    sun, _ = swe.calc_ut(jd, swe.SUN, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
+    return (moon[0] - sun[0]) % 360
+
+
+def _unwrap_near(d, target):
+    while d < target - 180:
+        d += 360
+    while d > target + 180:
+        d -= 360
+    return d
+
+
+def _find_tithi_boundary(target_deg, lo, hi):
+    def f(t):
+        return _unwrap_near(_tithi_angle(t), target_deg) - target_deg
+    flo, fhi = f(lo), f(hi)
+    if (flo < 0) == (fhi < 0):
+        return None  # no crossing in this window
+    for _ in range(60):
+        mid = lo + (hi - lo) / 2
+        fm = f(mid)
+        if (flo < 0) == (fm < 0):
+            lo, flo = mid, fm
+        else:
+            hi, fhi = mid, fm
+    return lo + (hi - lo) / 2
+
+
+def compute_tithi_chain(y, m, d):
+    """Returns a string in the same 'Name upto TIME, then Name2' format the
+    old scraper produced, e.g. 'Shashthi upto 03:29 AM, then Saptami', or
+    just 'Amavasya' if there's no transition before the next sunrise."""
+    midnight = datetime(y, m, d, 0, 0, tzinfo=IST)
+    sr0 = _sunrise_ist(midnight)
+    sr1 = _sunrise_ist(midnight + timedelta(days=1))
+
+    idx = int(_tithi_angle(sr0) // 12)
+    segments = [[TITHI_NAMES[idx], None]]
+    t = sr0
+    for _ in range(5):  # a day can't have more than a couple of transitions
+        boundary_deg = ((idx + 1) * 12) % 360
+        b = _find_tithi_boundary(boundary_deg, t, sr1)
+        if b is None:
+            break
+        idx = (idx + 1) % 30
+        segments[-1][1] = b
+        segments.append([TITHI_NAMES[idx], None])
+        t = b
+
+    parts = []
+    for name, end in segments:
+        if end is None:
+            parts.append(name)
+        else:
+            parts.append(f"{name} upto {end.strftime('%I:%M %p')}, then")
+    return " ".join(parts)
+
+
 MAX_ATTEMPTS = 5
 
 
@@ -1004,6 +1146,20 @@ def fetch_and_validate(date_str, weekday_full):
         data["rahu_kalam"] = f"{fixed['rahu'][0]} to {fixed['rahu'][1]}"
         data["yamaganda"] = f"{fixed['yama'][0]} to {fixed['yama'][1]}"
         data["gulikai_kalam"] = f"{fixed['gulika'][0]} to {fixed['gulika'][1]}"
+
+    # Override the scraped Tithi with the self-contained ephemeris
+    # computation above - verified to match Drik Panchang's own Tithi
+    # transition times to within about a minute, and no longer dependent on
+    # scraping fragile HTML for this field. Fall back to the scraped value
+    # if the computation fails for any reason (e.g. swisseph not available)
+    # rather than losing the field entirely.
+    try:
+        dd, mm_, yyyy = date_str.split("/")
+        computed_tithi = compute_tithi_chain(int(yyyy), int(mm_), int(dd))
+        if computed_tithi:
+            data["tithi"] = computed_tithi
+    except Exception as e:
+        print(f"  WARNING: computed Tithi failed ({e}), falling back to scraped value", file=sys.stderr)
 
     print("Parsed fields:")
     for k, v in data.items():
@@ -1088,13 +1244,28 @@ def main():
         "ta": f"பஞ்சாங்கம் (தமிழ்) - {target_dt.strftime('%d/%m/%Y')}",
     }
 
+    send_failures = []
     for recipient in RECIPIENTS:
         print(f"Sending to {recipient}...")
         for i, (lang, path) in enumerate(images):
-            send_image(recipient, APIKEY, path, captions[lang])
+            resp = send_image(recipient, APIKEY, path, captions[lang])
+            if not _send_ok(resp):
+                send_failures.append((recipient, lang, resp.text[:300] if resp is not None else "no response"))
             if i < len(images) - 1:
                 time.sleep(6)
         time.sleep(6)
+
+    if send_failures:
+        print(f"\nERROR: {len(send_failures)} message(s) were NOT actually delivered "
+              f"(TextMeBot returned HTTP 200 but the response body indicates failure):",
+              file=sys.stderr)
+        for recipient, lang, body in send_failures:
+            print(f"  {recipient} ({lang}): {body}", file=sys.stderr)
+        print("\nThis usually means the TextMeBot API key's trial/subscription has "
+              "expired, or the key is invalid. Check https://textmebot.com and "
+              "renew/subscribe if needed - this is not a bug in the script.",
+              file=sys.stderr)
+        sys.exit(1)
 
     print("Done.")
 
