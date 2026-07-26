@@ -663,28 +663,25 @@ TEMPLATE_PATH = os.path.join(ASSET_DIR, "panchangam_template.jpg")
 # reclaim a few extra pixels here (measuring only the flat template color
 # band, not the actual drawn header/footer graphics on top of it) caused
 # real overflow in production.
-HEADER_FRAC = 0.11
-FOOTER_FRAC = 0.865
+# Measured directly from the real "DAILY Panchangam" template (header logo +
+# temple timings baked into the top band, deity photo + temple name/address/
+# phone baked into a band lower down). The template image itself has been
+# cropped to end shortly after the footer band - the original export had a
+# large blank margin below the footer that just wasted space and made the
+# card look bottom-heavy/unbalanced, so it's gone from the asset now.
+HEADER_FRAC = 0.1242
+FOOTER_FRAC = 0.8071
 LEFT_FRAC = 0.045
 RIGHT_FRAC = 0.955
 
-# Palette: purple stays the "brand" tone (matches the temple's own header/
-# footer, used for neutral/informational boxes), plus two functional
-# accents so a box's color instantly signals what kind of time it is -
-# green for auspicious, red for times to avoid - the same way the original
-# pre-redesign cards color-coded good vs. bad timings. Value text stays a
-# single near-black for maximum readability against white; only the box
-# headers carry color, so the palette varies without ever hurting contrast
-# on the data itself.
-NEUTRAL_COL = (95, 40, 130)     # purple, matches the template's own header/footer bars
-GOOD_COL = (16, 190, 148)      # bright teal-green - auspicious timings
-WARN_COL = (233, 69, 96)       # bright warm red - timings to avoid
+# Minimal palette: plain white background throughout, no filled color boxes.
+# A single purple accent (matches the temple's own header/footer bars) is
+# used only for section-title text; every data value is bold near-black for
+# max readability; thin grey lines divide sections instead of color fills.
+ACCENT_COL = (95, 40, 130)      # the ONE accent color - section-title text only
 TEXT_COL = (18, 14, 10)         # near-black, max contrast on white
-LINE_COL = (185, 170, 195)
+LINE_COL = (205, 200, 210)      # thin divider / border lines
 SUBTITLE_COL = (95, 40, 130)
-
-def _tone_col(tone):
-    return {"good": GOOD_COL, "warn": WARN_COL}.get(tone, NEUTRAL_COL)
 
 def font_for(lang, weight, size):
     if lang == "en":
@@ -727,15 +724,19 @@ def _measure_blocks(draw, lang, blocks, content_w, font_scale, scale):
     """Compute every box's size at a given font_scale WITHOUT drawing
     anything, so render_card can auto-shrink the font until everything
     fits between the template's header and footer bars."""
-    header_size = max(int(40 * scale * font_scale), 14)
-    value_size = max(int(38 * scale * font_scale), 14)
-    list_header_size = max(int(42 * scale * font_scale), 14)
-    list_row_size = max(int(36 * scale * font_scale), 14)
+    # Data text gets priority (it's what people actually need to read at a
+    # glance, including elders on a phone screen), but section-title labels
+    # are still sized close enough to it to look like one coherent design
+    # rather than a mismatched "tiny label, huge value" layout.
+    header_size = max(int(36 * scale * font_scale), 14)
+    value_size = max(int(44 * scale * font_scale), 14)
+    list_header_size = max(int(36 * scale * font_scale), 14)
+    list_row_size = max(int(42 * scale * font_scale), 14)
     # Kept deliberately tight - every pixel of padding/gap here is a pixel
     # not going to the actual data text. Still enough for clean visual
     # separation between boxes, just not generous about it.
-    pad = max(int(9 * scale * font_scale), 5)
-    col_gap = max(int(12 * scale * font_scale), 5)
+    pad = max(int(6 * scale * font_scale), 4)
+    col_gap = max(int(9 * scale * font_scale), 4)
 
     fonts = {
         "header": font_for(lang, "bold", header_size),
@@ -744,8 +745,8 @@ def _measure_blocks(draw, lang, blocks, content_w, font_scale, scale):
         "list_row_lbl": font_for(lang, "medium", list_row_size),
         "list_row_val": font_for(lang, "bold", list_row_size),
     }
-    value_line_h = value_size + int(7 * scale * font_scale)
-    list_row_h = list_row_size + int(10 * scale * font_scale)
+    value_line_h = value_size + int(4 * scale * font_scale)
+    list_row_h = list_row_size + int(6 * scale * font_scale)
 
     geoms = []
     total_h = 0
@@ -767,7 +768,7 @@ def _measure_blocks(draw, lang, blocks, content_w, font_scale, scale):
             geoms.append({"type": "list", "header_h": header_h, "rows_h": rows_h})
             total_h += header_h + rows_h
 
-    row_gap = max(int(10 * scale * font_scale), 5)
+    row_gap = max(int(7 * scale * font_scale), 4)
     total_h += row_gap * max(len(blocks) - 1, 0)
     return total_h, geoms, fonts, pad, col_gap, value_line_h, list_row_h, row_gap
 
@@ -863,7 +864,8 @@ def render_card(lang, subtitle, blocks, outpath):
     d.text((W / 2, y), subtitle, font=f_sub, fill=SUBTITLE_COL, anchor="ma")
     y += subtitle_h
 
-    border_w = max(2, int(2 * scale))
+    border_w = max(1, int(1.5 * scale))
+    divider_w = max(1, int(1.5 * scale))
     for blk, geom in zip(blocks, geoms):
         if geom["type"] == "pair":
             box_w = geom["box_w"]
@@ -871,11 +873,11 @@ def render_card(lang, subtitle, blocks, outpath):
             box_h = header_h + geom["value_h"]
             for i, side in enumerate(("left", "right")):
                 bx = left + i * (box_w + col_gap)
-                tone = blk[side][2] if len(blk[side]) > 2 else "neutral"
                 d.rectangle([bx, y, bx + box_w, y + box_h], outline=LINE_COL, width=border_w, fill=(255, 255, 255))
-                d.rectangle([bx, y, bx + box_w, y + header_h], fill=_tone_col(tone))
                 d.text((bx + box_w / 2, y + header_h / 2), blk[side][0], font=fonts["header"],
-                       fill=(255, 255, 255), anchor="mm")
+                       fill=ACCENT_COL, anchor="mm")
+                d.line([(bx + pad, y + header_h), (bx + box_w - pad, y + header_h)],
+                       fill=LINE_COL, width=divider_w)
                 ty = y + header_h + pad
                 for line in geom[f"{side}_lines"]:
                     d.text((bx + box_w / 2, ty), line, font=fonts["value"], fill=TEXT_COL, anchor="ma")
@@ -885,9 +887,10 @@ def render_card(lang, subtitle, blocks, outpath):
             header_h = geom["header_h"]
             box_h = header_h + geom["rows_h"]
             d.rectangle([left, y, right, y + box_h], outline=LINE_COL, width=border_w, fill=(255, 255, 255))
-            d.rectangle([left, y, right, y + header_h], fill=_tone_col(blk.get("tone", "neutral")))
             d.text((left + content_w / 2, y + header_h / 2), blk["header"], font=fonts["list_header"],
-                   fill=(255, 255, 255), anchor="mm")
+                   fill=ACCENT_COL, anchor="mm")
+            d.line([(left + pad, y + header_h), (right - pad, y + header_h)],
+                   fill=LINE_COL, width=divider_w)
             ry = y + header_h + pad
             for lbl, val in blk["rows"]:
                 d.text((left + pad, ry), lbl, font=fonts["list_row_lbl"], fill=TEXT_COL)
