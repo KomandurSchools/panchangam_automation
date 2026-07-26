@@ -636,13 +636,24 @@ def validate_data(data):
         problems.append(f"weekday_full='{data.get('weekday_full')}' is not a recognized weekday")
 
     time_fields = ["sunrise", "sunset", "moonrise", "moonset", "brahma_muhurta",
-                   "abhijit", "amrit_kalam", "rahu_kalam", "yamaganda",
-                   "gulikai_kalam", "durmuhurtam", "varjyam"]
+                   "rahu_kalam", "yamaganda", "gulikai_kalam", "durmuhurtam", "varjyam"]
     for field in time_fields:
         val = data.get(field)
         if not val:
             problems.append(f"{field} is missing")
         elif not TIME_RE.search(val):
+            problems.append(f"{field}='{val}' does not look like a valid time")
+
+    # Abhijit Muhurta and Amrit Kalam are genuinely absent from the source
+    # page on some days (Abhijit doesn't occur on certain weekdays; Amrit
+    # Kalam depends on the Moon's position and some days it simply doesn't
+    # fall during a usable window) - that's real panchang behavior, not a
+    # scraping failure, so a missing value here should not block sending
+    # the rest of the day's card. Only flag it if something WAS scraped but
+    # doesn't look like a time (that would be an actual parsing bug).
+    for field in ("abhijit", "amrit_kalam"):
+        val = data.get(field)
+        if val and val.lower() != "none" and not TIME_RE.search(val):
             problems.append(f"{field}='{val}' does not look like a valid time")
 
     return (len(problems) == 0, problems)
@@ -864,16 +875,22 @@ def render_card(lang, subtitle, blocks, outpath):
     d.text((W / 2, y), subtitle, font=f_sub, fill=SUBTITLE_COL, anchor="ma")
     y += subtitle_h
 
-    border_w = max(1, int(1.5 * scale))
+    # No boxes/borders around each field - just the header-to-value divider
+    # under each section title, a thin rule between successive sections, and
+    # (for the two-up rows) a thin vertical rule between the left and right
+    # field. Open, uncluttered, closer to a plain sheet of data than a grid
+    # of cards.
     divider_w = max(1, int(1.5 * scale))
-    for blk, geom in zip(blocks, geoms):
+    n_blocks = len(blocks)
+    for i, (blk, geom) in enumerate(zip(blocks, geoms)):
         if geom["type"] == "pair":
             box_w = geom["box_w"]
             header_h = geom["header_h"]
             box_h = header_h + geom["value_h"]
-            for i, side in enumerate(("left", "right")):
-                bx = left + i * (box_w + col_gap)
-                d.rectangle([bx, y, bx + box_w, y + box_h], outline=LINE_COL, width=border_w, fill=(255, 255, 255))
+            mid_x = left + box_w + col_gap / 2
+            d.line([(mid_x, y), (mid_x, y + box_h)], fill=LINE_COL, width=divider_w)
+            for i2, side in enumerate(("left", "right")):
+                bx = left + i2 * (box_w + col_gap)
                 d.text((bx + box_w / 2, y + header_h / 2), blk[side][0], font=fonts["header"],
                        fill=ACCENT_COL, anchor="mm")
                 d.line([(bx + pad, y + header_h), (bx + box_w - pad, y + header_h)],
@@ -882,11 +899,10 @@ def render_card(lang, subtitle, blocks, outpath):
                 for line in geom[f"{side}_lines"]:
                     d.text((bx + box_w / 2, ty), line, font=fonts["value"], fill=TEXT_COL, anchor="ma")
                     ty += value_line_h
-            y += box_h + row_gap
+            y += box_h
         else:  # "list"
             header_h = geom["header_h"]
             box_h = header_h + geom["rows_h"]
-            d.rectangle([left, y, right, y + box_h], outline=LINE_COL, width=border_w, fill=(255, 255, 255))
             d.text((left + content_w / 2, y + header_h / 2), blk["header"], font=fonts["list_header"],
                    fill=ACCENT_COL, anchor="mm")
             d.line([(left + pad, y + header_h), (right - pad, y + header_h)],
@@ -896,7 +912,13 @@ def render_card(lang, subtitle, blocks, outpath):
                 d.text((left + pad, ry), lbl, font=fonts["list_row_lbl"], fill=TEXT_COL)
                 d.text((right - pad, ry), val, font=fonts["list_row_val"], fill=TEXT_COL, anchor="ra")
                 ry += list_row_h
-            y += box_h + row_gap
+            y += box_h
+        # Separator rule sits inside the existing inter-block gap (row_gap),
+        # not on top of it, so it never costs any extra vertical space
+        # beyond what the auto-fit sizing already accounted for.
+        if i < n_blocks - 1:
+            d.line([(left, y + row_gap / 2), (right, y + row_gap / 2)], fill=LINE_COL, width=divider_w)
+        y += row_gap
 
     img.save(outpath, quality=92)
     return outpath
@@ -953,6 +975,7 @@ def build_images(data, dt_ist):
         subtitle = f"{date_str}  |  {weekday}  |  {city}"
 
         abhijit_val = data["abhijit"] if data["abhijit"] and data["abhijit"].lower() != "none" else L["none_today"]
+        amrit_val = data["amrit_kalam"] if data["amrit_kalam"] and data["amrit_kalam"].lower() != "none" else L["none_today"]
 
         def _na_if_absent(val):
             # Some days genuinely have no moonrise/moonset within the
@@ -991,7 +1014,7 @@ def build_images(data, dt_ist):
             {"type": "pair", "left": (L["moonrise"], moonrise_val, "neutral"), "right": (L["moonset"], moonset_val, "neutral")},
             {"type": "pair", "left": (L["rahu"], data["rahu_kalam"] or "-", "warn"), "right": (L["yama"], data["yamaganda"] or "-", "warn")},
             {"type": "pair", "left": (L["gulika"], data["gulikai_kalam"] or "-", "warn"), "right": (L["durmuhurtam"], data["durmuhurtam"] or "-", "warn")},
-            {"type": "pair", "left": (L["varjyam"], data["varjyam"] or "-", "warn"), "right": (L["amrit"], data["amrit_kalam"] or "-", "good")},
+            {"type": "pair", "left": (L["varjyam"], data["varjyam"] or "-", "warn"), "right": (L["amrit"], amrit_val, "good")},
         ]
 
         outpath = os.path.join(HERE, f"panchangam_{lang}.jpg")
