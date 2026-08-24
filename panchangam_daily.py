@@ -130,7 +130,7 @@ NAKSHATRA_TA = {
 }
 
 YOGA_TE = {
-    "Vishkambha": "విష్కంభ", "Priti": "ప్రీతి", "Ayushman": "ఆయుష్మాన్", "Saubhagya": "సౌభాగ్య",
+    "Vishkambha": "విష్కంభ", "Priti": "ప్రీతి", "Ayushman": "ఆయుష్మాన్", "Ayushmana": "ఆయుష్మాన్", "Saubhagya": "సౌభాగ్య",
     "Shobhana": "శోభన", "Atiganda": "అతిగండ", "Sukarma": "సుకర్మ", "Dhriti": "ధృతి",
     "Shula": "శూల", "Ganda": "గండ", "Vriddhi": "వృద్ధి", "Dhruva": "ధ్రువ",
     "Vyaghata": "వ్యాఘాత", "Harshana": "హర్షణ", "Vajra": "వజ్ర", "Siddhi": "సిద్ధి",
@@ -139,7 +139,7 @@ YOGA_TE = {
     "Brahma": "బ్రహ్మ", "Indra": "ఇంద్ర", "Vaidhriti": "వైధృతి",
 }
 YOGA_TA = {
-    "Vishkambha": "விஷ்கம்பம்", "Priti": "பிரீதி", "Ayushman": "ஆயுஷ்மான்", "Saubhagya": "சௌபாக்கியம்",
+    "Vishkambha": "விஷ்கம்பம்", "Priti": "பிரீதி", "Ayushman": "ஆயுஷ்மான்", "Ayushmana": "ஆயுஷ்மான்", "Saubhagya": "சௌபாக்கியம்",
     "Shobhana": "சோபனம்", "Atiganda": "அதிகண்டம்", "Sukarma": "சுகர்மா", "Dhriti": "திருதி",
     "Shula": "சூலம்", "Ganda": "கண்டம்", "Vriddhi": "விருத்தி", "Dhruva": "துருவம்",
     "Vyaghata": "வியாகாதம்", "Harshana": "ஹர்ஷணம்", "Vajra": "வஜ்ரம்", "Siddhi": "சித்தி",
@@ -254,18 +254,31 @@ def apply_en_overrides(text):
         text = re.sub(r'\b' + re.escape(raw) + r'\b', preferred, text)
     return text
 
+
+def fmt_range_display(s):
+    """'12:39 PM to 01:28 PM, then 03:07 PM to 03:57 PM' -> '12:39 PM –
+    01:28 PM, 03:07 PM – 03:57 PM' - the compact en-dash notation the
+    reference layout uses, which also reads correctly in the Telugu/Tamil
+    cards (unlike the bare English words 'to'/'then' this replaces)."""
+    if not s:
+        return s
+    s = re.sub(r'\s+to\s+', ' \u2013 ', s, flags=re.IGNORECASE)
+    s = re.sub(r',?\s*then\s+', ', ', s, flags=re.IGNORECASE)
+    return s
+
 LABELS = {
     "en": {
         "title": "Today's Panchangam", "core": "Panchang Core", "sunmoon": "Sun & Moon",
         "auspicious": "Auspicious Timings", "inauspicious": "Inauspicious Timings",
         "tithi": "Tithi", "nakshatra": "Nakshatra", "yoga": "Yoga", "karana": "Karana",
         "paksha": "Paksha", "sunrise": "Sunrise", "sunset": "Sunset", "moonrise": "Moonrise",
-        "moonset": "Moonset", "brahma": "Brahma Muhurtham", "abhijit": "Abhijit Muhurtham",
-        "amrit": "Amrit Kalam", "rahu": "Rahu Kalam", "yama": "Yamagandam",
-        "gulika": "Gulikai Kalam", "durmuhurtam": "Durmuhurtam", "varjyam": "Varjyam",
+        "moonset": "Moonset", "brahma": "Brahma Muhurat", "abhijit": "Abhijit Muhurat",
+        "amrit": "Amrit Kaal", "rahu": "Rahu", "yama": "Yamaganda",
+        "gulika": "Gulika", "durmuhurtam": "Dur Muhurat", "varjyam": "Varjyam",
         "upto": "upto", "then": "then", "none_today": "None Today",
         "yearinfo": "Year & Season", "samvatsara": "Samvatsara", "masa": "Masa",
-        "ritu": "Ritu", "ayana": "Ayana", "vara": "Vara",
+        "ritu": "Ritu", "ayana": "Ayana", "vara": "Vara", "soorya_rasi": "Soorya Rasi",
+        "sun_in": "Sun in",
     },
     "te": {
         "title": "నేటి పంచాంగం", "core": "పంచాంగ వివరాలు", "sunmoon": "సూర్య చంద్ర సమయాలు",
@@ -277,7 +290,8 @@ LABELS = {
         "gulika": "గుళిక కాలం", "durmuhurtam": "దుర్ముహూర్తం", "varjyam": "వర్జ్యము",
         "upto": "వరకు", "then": "తర్వాత", "none_today": "ఈరోజు లేదు",
         "yearinfo": "సంవత్సర వివరాలు", "samvatsara": "సంవత్సరం", "masa": "మాసం",
-        "ritu": "ఋతువు", "ayana": "అయనం", "vara": "వారం",
+        "ritu": "ఋతువు", "ayana": "అయనం", "vara": "వారం", "soorya_rasi": "సూర్య రాశి",
+        "sun_in": "సూర్యుడు",
     },
     "ta": {
         "title": "இன்றைய பஞ்சாங்கம்", "core": "பஞ்சாங்க விவரங்கள்", "sunmoon": "சூரிய சந்திர நேரங்கள்",
@@ -289,7 +303,8 @@ LABELS = {
         "gulika": "குளிகை காலம்", "durmuhurtam": "துர்முகூர்த்தம்", "varjyam": "வர்ஜ்யம்",
         "upto": "வரை", "then": "பின்", "none_today": "இன்று இல்லை",
         "yearinfo": "ஆண்டு விவரங்கள்", "samvatsara": "வருடம்", "masa": "மாதம்",
-        "ritu": "ருது", "ayana": "அயனம்", "vara": "வாரம்",
+        "ritu": "ருது", "ayana": "அயனம்", "vara": "வாரம்", "soorya_rasi": "சூரிய ராசி",
+        "sun_in": "சூரியன்",
     },
 }
 
@@ -731,6 +746,42 @@ def _wrap_lines(draw, text, font, max_width):
     return lines
 
 
+def _measure_rows(draw, rows, lbl_font, val_font, width, row_h, gap):
+    """Shared measurer for every 'Label - Value' row list on the card (the
+    left column's Samvatsara/Masa/... group AND every right-column group's
+    rows). Each row's value starts at a fixed x-offset past the widest
+    label in that group (so a long label can never collide with its
+    value), and wraps into the remaining width if it still needs to.
+    A blank label (used for the plain Soorya Rasi sentence) collapses the
+    offset to 0, so that row just reads as ordinary left-aligned text."""
+    lbl_widths = [draw.textbbox((0, 0), lbl, font=lbl_font)[2] - draw.textbbox((0, 0), lbl, font=lbl_font)[0]
+                  for lbl, _ in rows if lbl]
+    lbl_w = max(lbl_widths, default=0)
+    val_x_off = (lbl_w + gap) if lbl_w > 0 else 0
+    val_w = max(width - val_x_off, int(width * 0.3))
+    rows_geom = []
+    rows_h = 0
+    for lbl, val in rows:
+        lines = _wrap_lines(draw, val, val_font, val_w)
+        n = max(len(lines), 1)
+        rows_geom.append({"lbl": lbl, "lines": lines})
+        rows_h += n * row_h
+    return rows_geom, rows_h, val_x_off
+
+
+def _draw_rows(d, rows_geom, x, y, val_x_off, row_h, lbl_font, val_font, accent_col, text_col):
+    """Draws a row list measured by _measure_rows; returns the y position
+    just past the last row."""
+    ry = y
+    for row in rows_geom:
+        if row["lbl"]:
+            d.text((x, ry), row["lbl"], font=lbl_font, fill=accent_col)
+        for line in row["lines"]:
+            d.text((x + val_x_off, ry), line, font=val_font, fill=text_col)
+            ry += row_h
+    return ry
+
+
 def _measure_v2(draw, lang, blocks, content_w, font_scale, scale):
     """Compute the two-column layout's geometry at a given font_scale
     WITHOUT drawing anything, so render_card can auto-shrink the font
@@ -738,80 +789,86 @@ def _measure_v2(draw, lang, blocks, content_w, font_scale, scale):
 
     blocks = {
         "quad": [(label, value), ...] (4 items - Sunrise/Sunset/Moonrise/Moonset),
-        "left": [(label, value), ...] (the panchang-details column - each
-                 field is drawn as a small label line, then its value
-                 wrapped below, mirroring the "field name above, reading"
-                 style both reference layouts use for Tithi/Nakshatra),
-        "right": [{"header": ..., "rows": [(label, value), ...]}, ...]
-                 (Inauspicious/Auspicious groups - each a section title
-                 over a list of single-line label/value rows),
+        "left_inline": [(label, value), ...] (Samvatsara, Masa, Ritu, Ayana,
+                        Paksha, Vara - each a single "Label - Value" line),
+        "left_fields": [(label, value), ...] (Tithi, Nakshatra, Yoga, Karana -
+                        each its own standalone header with the value
+                        wrapped below it, divided from the next field),
+        "right": [{"header": str or None, "rows": [(label, value), ...]}, ...]
+                 (Inauspicious Timings, Auspicious Timings, Soorya Rasi -
+                 each a section title over "Label - Value" rows; a group
+                 with header=None just draws its rows with no title).
     }
     """
-    label_size = max(int(28 * scale * font_scale), 12)
-    value_size = max(int(38 * scale * font_scale), 14)
+    label_size = max(int(27 * scale * font_scale), 12)
+    value_size = max(int(37 * scale * font_scale), 14)
     row_size = max(int(27 * scale * font_scale), 12)
-    section_size = max(int(36 * scale * font_scale), 14)
+    field_header_size = max(int(33 * scale * font_scale), 13)
+    section_size = max(int(33 * scale * font_scale), 13)
 
     fonts = {
-        "label": font_for(lang, "medium", label_size),
-        "value": font_for(lang, "bold", value_size),
-        "row_lbl": font_for(lang, "medium", row_size),
-        "row_val": font_for(lang, "bold", row_size),
+        "quad_label": font_for(lang, "medium", label_size),
+        "quad_value": font_for(lang, "bold", value_size),
+        "row_lbl": font_for(lang, "bold", row_size),
+        "row_val": font_for(lang, "medium", row_size),
+        "field_header": font_for(lang, "bold", field_header_size),
+        "field_value": font_for(lang, "bold", value_size),
         "section": font_for(lang, "bold", section_size),
     }
 
     pad = max(int(10 * scale * font_scale), 5)
     col_gap = max(int(26 * scale * font_scale), 10)
+    row_gap = max(int(14 * scale * font_scale), 6)
     label_val_gap = max(int(3 * scale * font_scale), 2)
-    item_gap = max(int(11 * scale * font_scale), 5)
-    group_gap = max(int(16 * scale * font_scale), 7)
+    field_gap = max(int(15 * scale * font_scale), 7)
+    group_gap = max(int(17 * scale * font_scale), 7)
 
+    row_h = row_size + int(10 * scale * font_scale)
     label_line_h = label_size + int(4 * scale * font_scale)
     value_line_h = value_size + int(6 * scale * font_scale)
-    row_h = row_size + int(10 * scale * font_scale)
+    field_header_h = field_header_size + int(4 * scale * font_scale)
     section_h = section_size + int(10 * scale * font_scale)
 
     # Asymmetric split: the left column only ever holds short label/value
-    # pairs (single words or short phrases), while the right column needs
-    # to fit full "HH:MM AM to HH:MM AM" ranges next to their labels -
-    # giving it a bit more width avoids gratuitous wrapping there.
-    col_w = int((content_w - col_gap) * 0.44)
+    # pairs, while the right column needs to fit full "HH:MM AM to HH:MM
+    # AM" ranges next to their labels - giving it a bit more width avoids
+    # gratuitous wrapping there.
+    col_w = int((content_w - col_gap) * 0.40)
     right_col_w = content_w - col_gap - col_w
 
     quad_h = label_line_h + label_val_gap + value_line_h + pad
 
-    left_geom = []
-    left_h = 0
-    usable_left_w = col_w - 2 * pad
-    for lbl, val in blocks["left"]:
-        lines = _wrap_lines(draw, val, fonts["value"], usable_left_w)
-        item_h = label_line_h + label_val_gap + max(len(lines), 1) * value_line_h
-        left_geom.append({"lbl": lbl, "lines": lines, "h": item_h})
-        left_h += item_h + item_gap
-    left_h -= item_gap if left_geom else 0
+    # Left column: an unheaded "Label - Value" row group, then a divider,
+    # then the standalone Tithi/Nakshatra/Yoga/Karana fields.
+    inline_geom, inline_rows_h, inline_val_x_off = _measure_rows(
+        draw, blocks["left_inline"], fonts["row_lbl"], fonts["row_val"],
+        col_w - pad, row_h, max(int(14 * scale * font_scale), 6))
 
-    # Right column: a per-group label column width keeps a long label
-    # (Telugu/Tamil labels can run much wider than English at the same
-    # point size) from ever colliding with its value - the value starts
-    # at a fixed offset past the widest label in that group, and wraps
-    # into the remaining width if it still needs to.
+    field_geom = []
+    fields_h = 0
+    usable_field_w = col_w - 2 * pad
+    for lbl, val in blocks["left_fields"]:
+        lines = _wrap_lines(draw, val, fonts["field_value"], usable_field_w)
+        item_h = field_header_h + label_val_gap + max(len(lines), 1) * value_line_h
+        field_geom.append({"lbl": lbl, "lines": lines, "h": item_h})
+        fields_h += item_h + field_gap
+    fields_h -= field_gap if field_geom else 0
+
+    left_h = inline_rows_h + (group_gap if inline_geom and field_geom else 0) + fields_h
+
+    # Right column: Inauspicious Timings / Auspicious Timings / Soorya
+    # Rasi, each a section title over "Label - Value" rows.
     right_geom = []
     right_h = 0
     usable_right_w = right_col_w - pad
     for grp in blocks["right"]:
-        lbl_bboxes = [draw.textbbox((0, 0), lbl, font=fonts["row_lbl"]) for lbl, _ in grp["rows"]]
-        lbl_w = max((b[2] - b[0] for b in lbl_bboxes), default=0)
-        val_x_off = lbl_w + max(int(14 * scale * font_scale), 6)
-        val_w = max(usable_right_w - val_x_off, int(usable_right_w * 0.3))
-        rows_geom = []
-        rows_h = 0
-        for lbl, val in grp["rows"]:
-            lines = _wrap_lines(draw, val, fonts["row_val"], val_w)
-            rh = max(len(lines), 1) * row_h
-            rows_geom.append({"lbl": lbl, "lines": lines})
-            rows_h += rh
-        gh = section_h + pad + rows_h
-        right_geom.append({"header": grp["header"], "rows": rows_geom, "val_x_off": val_x_off, "h": gh})
+        rows_geom, rows_h, val_x_off = _measure_rows(
+            draw, grp["rows"], fonts["row_lbl"], fonts["row_val"],
+            usable_right_w, row_h, max(int(14 * scale * font_scale), 6))
+        header_h = (section_h + pad / 2) if grp.get("header") else 0
+        gh = header_h + rows_h
+        right_geom.append({"header": grp.get("header"), "rows": rows_geom,
+                            "val_x_off": val_x_off, "header_h": header_h, "h": gh})
         right_h += gh + group_gap
     right_h -= group_gap if right_geom else 0
 
@@ -820,47 +877,41 @@ def _measure_v2(draw, lang, blocks, content_w, font_scale, scale):
 
     return {
         "total_h": total_h, "quad_h": quad_h, "col_w": col_w, "right_col_w": right_col_w,
-        "left_geom": left_geom, "right_geom": right_geom,
-        "n_left": len(left_geom), "n_right": len(right_geom),
+        "inline_geom": inline_geom, "inline_val_x_off": inline_val_x_off,
+        "field_geom": field_geom, "right_geom": right_geom,
+        "n_fields": len(field_geom), "n_right": len(right_geom),
+        "has_inline": bool(inline_geom), "has_fields": bool(field_geom),
         "fonts": fonts, "pad": pad, "col_gap": col_gap, "label_val_gap": label_val_gap,
-        "item_gap": item_gap, "group_gap": group_gap,
-        "label_line_h": label_line_h, "value_line_h": value_line_h,
-        "row_h": row_h, "section_h": section_h,
+        "row_gap": row_gap, "field_gap": field_gap, "group_gap": group_gap,
+        "row_h": row_h, "label_line_h": label_line_h, "value_line_h": value_line_h,
+        "field_header_h": field_header_h, "section_h": section_h,
     }
 
 
 def render_card(lang, subtitle, blocks, outpath):
-    """Draws a two-column Panchang card onto the temple's template image:
-    a Sunrise/Sunset/Moonrise/Moonset strip, then a left column listing
-    the day's core Panchang fields (Samvatsara through Karana, each as a
-    label with its value below) beside a right column of Inauspicious/
-    Auspicious timing lists - the grouped, sectioned layout style asked
-    for, kept in the project's existing single purple accent / white
-    background palette and composited onto the same header/footer
-    template as before. Font size auto-shrinks as needed so nothing ever
-    overlaps or runs past the footer bar."""
+    """Draws a two-column Panchang card onto the temple's template image,
+    modeled closely on the reference layout: a Sunrise/Sunset/Moonrise/
+    Moonset strip, a left column of Samvatsara/Masa/Ritu/Ayana/Paksha/Vara
+    as inline "Label - Value" lines followed by Tithi/Nakshatra/Yoga/
+    Karana as their own standalone fields, and a right column of
+    Inauspicious Timings / Auspicious Timings / Soorya Rasi groups - kept
+    in this project's own single purple accent / white background palette
+    and composited onto the same header/footer template as before. Font
+    size auto-shrinks as needed so nothing ever overlaps or runs past the
+    footer bar."""
     base = Image.open(TEMPLATE_PATH).convert("RGB")
     W, H = base.size
     img = base.copy()
     d = ImageDraw.Draw(img)
 
     top = int(H * HEADER_FRAC)
-    # Small safety margin below the nominal footer-bar boundary, so even a
-    # rounding edge case never lets content visually touch the temple's
-    # footer banner.
     bottom = int(H * FOOTER_FRAC) - int(H * 0.008)
     left = int(W * LEFT_FRAC)
     right = int(W * RIGHT_FRAC)
     content_w = right - left
     scale = W / 1587.0
 
-    # The date/day/location line - deliberately the single biggest, boldest
-    # piece of text on the whole card, well above the size any grid data
-    # ever reaches, so it's the first thing the eye lands on. Shrink it down
-    # from that target size if needed so it never runs past the card's
-    # edges - Tamil in particular renders noticeably wider than English at
-    # the same point size for this string.
-    subtitle_size = max(int(60 * scale), 14)
+    subtitle_size = max(int(58 * scale), 14)
     subtitle_margin_w = int(content_w * 0.96)
     while subtitle_size > 14:
         f_sub = font_for(lang, "bold", subtitle_size)
@@ -870,16 +921,10 @@ def render_card(lang, subtitle, blocks, outpath):
         subtitle_size -= 2
     else:
         f_sub = font_for(lang, "bold", subtitle_size)
-    subtitle_h = subtitle_size + int(18 * scale)
-    content_top = top + int(14 * scale)
+    subtitle_h = subtitle_size + int(16 * scale)
+    content_top = top + int(12 * scale)
     available = bottom - content_top - subtitle_h
 
-    # Auto-fit: search for the LARGEST font_scale that still fits (start
-    # big and shrink ~2% at a time for fine granularity), floor at 22% of
-    # base size - low enough that this should only ever bottom out on a
-    # genuinely pathological amount of content. This finds the biggest font
-    # the content allows on any given day - short values get a bigger font
-    # than a day with several long chained tithi/nakshatra transitions.
     font_scale = 1.6
     m = None
     while True:
@@ -888,22 +933,17 @@ def render_card(lang, subtitle, blocks, outpath):
             break
         font_scale -= 0.02
 
-    # Hard safety valve, same philosophy as before: even at the smallest
-    # readable font, an extreme day (every field long at once) could in
-    # theory still not fit. Rather than let that overflow into the
-    # temple's footer banner, compress every line-height/gap by a uniform
-    # squeeze factor so the whole layout is GUARANTEED to end at or above
-    # `bottom`, no matter what.
     squeeze = 1.0
     if m["total_h"] > available > 0:
         squeeze = max(available / m["total_h"], 0.5)
 
+    row_h = m["row_h"] * squeeze
     label_line_h = m["label_line_h"] * squeeze
     value_line_h = m["value_line_h"] * squeeze
-    row_h = m["row_h"] * squeeze
+    field_header_h = m["field_header_h"] * squeeze
     section_h = m["section_h"] * squeeze
     label_val_gap = m["label_val_gap"] * squeeze
-    item_gap = m["item_gap"] * squeeze
+    field_gap = m["field_gap"] * squeeze
     group_gap = m["group_gap"] * squeeze
     quad_h = m["quad_h"] * squeeze
     pad = m["pad"]
@@ -911,37 +951,42 @@ def render_card(lang, subtitle, blocks, outpath):
     col_w = m["col_w"]
     fonts = m["fonts"]
 
-    def _left_col_h(item_gap_):
-        h = 0
-        for item in m["left_geom"]:
-            h += label_line_h + label_val_gap + len(item["lines"]) * value_line_h + item_gap_
-        return h - item_gap_ if m["left_geom"] else 0
+    def _inline_rows_h():
+        return sum(max(len(r["lines"]), 1) * row_h for r in m["inline_geom"])
 
-    def _right_col_h(group_gap_):
+    def _fields_h(field_gap_):
+        h = 0
+        for item in m["field_geom"]:
+            h += field_header_h + label_val_gap + len(item["lines"]) * value_line_h + field_gap_
+        return h - field_gap_ if m["field_geom"] else 0
+
+    def _right_h(group_gap_):
         h = 0
         for grp in m["right_geom"]:
             rows_h = sum(len(r["lines"]) * row_h for r in grp["rows"])
-            h += section_h + pad + rows_h + group_gap_
+            header_h = (section_h + pad / 2) if grp["header"] else 0
+            h += header_h + rows_h + group_gap_
         return h - group_gap_ if m["right_geom"] else 0
 
-    left_col_h = _left_col_h(item_gap)
-    right_col_h = _right_col_h(group_gap)
+    inline_h = _inline_rows_h()
+    fields_h = _fields_h(field_gap)
+    left_col_h = inline_h + (group_gap if m["has_inline"] and m["has_fields"] else 0) + fields_h
+    right_col_h = _right_h(group_gap)
     col_h = max(left_col_h, right_col_h)
 
-    # Distribute any leftover space into the gaps of BOTH columns (rather
-    # than just growing the taller one), so the shorter column stretches
-    # to end near the same bottom line instead of leaving one big dead
-    # patch of white beneath it - matching how both reference layouts
-    # fill the card top-to-bottom.
+    # Distribute any leftover space into the gaps of BOTH columns, so the
+    # shorter column stretches to end near the same bottom line instead of
+    # leaving one big dead patch of white beneath it.
     leftover = max(0, available - (quad_h + group_gap + col_h))
     group_gap_right = group_gap
     if leftover > 0:
-        if m["n_left"] > 1:
-            item_gap += leftover / (m["n_left"] - 1)
+        if m["n_fields"] > 1:
+            field_gap += leftover / m["n_fields"]
         if m["n_right"] > 1:
             group_gap_right = group_gap + leftover / (m["n_right"] - 1)
-        left_col_h = _left_col_h(item_gap)
-        right_col_h = _right_col_h(group_gap_right)
+        fields_h = _fields_h(field_gap)
+        left_col_h = inline_h + (group_gap if m["has_inline"] and m["has_fields"] else 0) + fields_h
+        right_col_h = _right_h(group_gap_right)
         col_h = max(left_col_h, right_col_h)
 
     y = content_top
@@ -950,15 +995,14 @@ def render_card(lang, subtitle, blocks, outpath):
 
     divider_w = max(1, int(1.5 * scale))
 
-    # Sun & Moon strip: Sunrise | Sunset | Moonrise | Moonset, four equal
-    # segments, label above value, centered.
+    # Sun & Moon strip: Sunrise | Sunset | Moonrise | Moonset.
     seg_w = content_w / 4
     qy_label = y + pad / 2
     qy_value = qy_label + label_line_h + label_val_gap
     for i, (lbl, val) in enumerate(blocks["quad"]):
         cx = left + seg_w * i + seg_w / 2
-        d.text((cx, qy_label), lbl, font=fonts["label"], fill=ACCENT_COL, anchor="ma")
-        d.text((cx, qy_value), val, font=fonts["value"], fill=TEXT_COL, anchor="ma")
+        d.text((cx, qy_label), lbl, font=fonts["quad_label"], fill=ACCENT_COL, anchor="ma")
+        d.text((cx, qy_value), val, font=fonts["quad_value"], fill=TEXT_COL, anchor="ma")
         if i > 0:
             d.line([(left + seg_w * i, y), (left + seg_w * i, y + quad_h - pad / 2)],
                    fill=LINE_COL, width=divider_w)
@@ -970,43 +1014,41 @@ def render_card(lang, subtitle, blocks, outpath):
     mid_x = left + col_w + col_gap / 2
     d.line([(mid_x, col_top), (mid_x, col_top + col_h)], fill=LINE_COL, width=divider_w)
 
-    # Left column: Panchang details (Samvatsara through Karana) - each a
-    # small accent-colored label line with its (possibly multi-line,
-    # word-wrapped) value below it in bold text.
+    # Left column
     ly = col_top
-    for item in m["left_geom"]:
-        d.text((left, ly), item["lbl"], font=fonts["label"], fill=ACCENT_COL)
-        vy = ly + label_line_h + label_val_gap
+    ly = _draw_rows(d, m["inline_geom"], left, ly, m["inline_val_x_off"], row_h,
+                     fonts["row_lbl"], fonts["row_val"], TEXT_COL, TEXT_COL)
+    if m["has_inline"] and m["has_fields"]:
+        dy = ly + group_gap / 2
+        d.line([(left, dy), (left + col_w, dy)], fill=LINE_COL, width=divider_w)
+        ly += group_gap
+    for item in m["field_geom"]:
+        d.text((left, ly), item["lbl"], font=fonts["field_header"], fill=ACCENT_COL)
+        vy = ly + field_header_h + label_val_gap
         for line in item["lines"]:
-            d.text((left, vy), line, font=fonts["value"], fill=TEXT_COL)
+            d.text((left, vy), line, font=fonts["field_value"], fill=TEXT_COL)
             vy += value_line_h
-        item_h = label_line_h + label_val_gap + len(item["lines"]) * value_line_h
-        ly += item_h + item_gap
+        item_h = field_header_h + label_val_gap + len(item["lines"]) * value_line_h
+        ly += item_h
+        dy = ly + field_gap / 2
+        d.line([(left, dy), (left + col_w, dy)], fill=LINE_COL, width=divider_w)
+        ly += field_gap
 
-    # Right column: Inauspicious/Auspicious timing groups - a section
-    # title over single-line label/value rows (label left, value starting
-    # at that group's fixed offset, wrapping if a two-window value needs
-    # more than one line).
+    # Right column
     rx = left + col_w + col_gap
     ry = col_top
     for grp in m["right_geom"]:
-        d.text((rx, ry), grp["header"], font=fonts["section"], fill=ACCENT_COL)
-        uy = ry + section_h - pad / 2
-        d.line([(rx, uy), (right, uy)], fill=LINE_COL, width=divider_w)
-        ry2 = ry + section_h + pad / 2
-        for row in grp["rows"]:
-            vy = ry2
-            d.text((rx, vy), row["lbl"], font=fonts["row_lbl"], fill=TEXT_COL)
-            for line in row["lines"]:
-                d.text((rx + grp["val_x_off"], vy), line, font=fonts["row_val"], fill=TEXT_COL)
-                vy += row_h
-            ry2 += len(row["lines"]) * row_h
-        grp_h = section_h + pad / 2 + sum(len(r["lines"]) * row_h for r in grp["rows"])
-        ry += grp_h + group_gap_right
+        if grp["header"]:
+            d.text((rx, ry), grp["header"], font=fonts["section"], fill=ACCENT_COL)
+            uy = ry + section_h - pad / 2
+            d.line([(rx, uy), (right, uy)], fill=LINE_COL, width=divider_w)
+            ry += section_h + pad / 2
+        ry = _draw_rows(d, grp["rows"], rx, ry, grp["val_x_off"], row_h,
+                         fonts["row_lbl"], fonts["row_val"], TEXT_COL, TEXT_COL)
+        ry += group_gap_right
 
     img.save(outpath, quality=92)
     return outpath
-
 
 def build_images(data, dt_ist):
     te_tithi, ta_tithi = translate_value(data["tithi"] or "", TITHI_TE, TITHI_TA)
@@ -1039,16 +1081,21 @@ def build_images(data, dt_ist):
     ta_ayana = AYANA_TA.get(ayana_raw, ayana_raw) if ayana_raw else "-"
     en_ayana = ayana_raw or "-"
 
+    surya_raw = data.get("surya_rasi")
+    en_surya = f"{surya_raw} ({RASHI_EN_WESTERN[surya_raw]})" if surya_raw else "-"
+    te_surya = RASHI_TE.get(surya_raw, surya_raw) if surya_raw else "-"
+    ta_surya = RASHI_TA.get(surya_raw, surya_raw) if surya_raw else "-"
+
     outputs = []
-    for lang, tithi, nak, yoga, kar, paksha, weekday, month_name, samv, masa, ritu, ayana in [
+    for lang, tithi, nak, yoga, kar, paksha, weekday, month_name, samv, masa, ritu, ayana, surya in [
         ("en", apply_en_overrides(data["tithi"]), apply_en_overrides(data["nakshatra"]),
          apply_en_overrides(data["yoga"]), apply_en_overrides(data["karana"]),
          data["paksha"], data["weekday_full"], dt_ist.strftime("%B"),
-         (samv_raw or "-"), en_masa, en_ritu, en_ayana),
+         (samv_raw or "-"), en_masa, en_ritu, en_ayana, en_surya),
         ("te", te_tithi, te_nak, te_yoga, te_kar, te_paksha, te_weekday, MONTH_TE[dt_ist.month],
-         te_samv, te_masa, te_ritu, te_ayana),
+         te_samv, te_masa, te_ritu, te_ayana, te_surya),
         ("ta", ta_tithi, ta_nak, ta_yoga, ta_kar, ta_paksha, ta_weekday, MONTH_TA[dt_ist.month],
-         ta_samv, ta_masa, ta_ritu, ta_ayana),
+         ta_samv, ta_masa, ta_ritu, ta_ayana, ta_surya),
     ]:
         L = LABELS[lang]
         city = {"en": CITY_LABEL_EN, "te": CITY_LABEL_TE, "ta": CITY_LABEL_TA}[lang]
@@ -1074,12 +1121,14 @@ def build_images(data, dt_ist):
         moonrise_val = _na_if_absent(data["moonrise"]) or "-"
         moonset_val = _na_if_absent(data["moonset"]) or "-"
 
-        # Two-column layout, modeled on the grouped-panel style the user's
-        # father-in-law liked (a Sun & Moon strip, a Panchang-details
-        # column, and separate Inauspicious/Auspicious timing lists) -
-        # kept in this project's own single purple accent / white
-        # background palette and composited onto the same header/footer
-        # template as before. See render_card()/_measure_v2() above.
+        # Two-column layout, matched closely to the reference the user's
+        # father-in-law liked: a Sun & Moon strip, then a left column of
+        # Samvatsara/Masa/Ritu/Ayana/Paksha/Vara as inline "Label - Value"
+        # lines followed by Tithi/Nakshatra/Yoga/Karana as their own
+        # standalone fields, and a right column of Inauspicious Timings /
+        # Auspicious Timings / Soorya Rasi groups - kept in this project's
+        # own single purple accent / white background palette and
+        # composited onto the same header/footer template as before.
         blocks = {
             "quad": [
                 (L["sunrise"], data["sunrise"] or "-"),
@@ -1087,13 +1136,15 @@ def build_images(data, dt_ist):
                 (L["moonrise"], moonrise_val),
                 (L["moonset"], moonset_val),
             ],
-            "left": [
+            "left_inline": [
                 (L["samvatsara"], samv),
-                (L["ayana"], ayana),
-                (L["ritu"], ritu),
                 (L["masa"], masa),
+                (L["ritu"], ritu),
+                (L["ayana"], ayana),
                 (L["paksha"], paksha or "-"),
                 (L["vara"], weekday),
+            ],
+            "left_fields": [
                 (L["tithi"], tithi or "-"),
                 (L["nakshatra"], nak or "-"),
                 (L["yoga"], yoga or "-"),
@@ -1101,16 +1152,19 @@ def build_images(data, dt_ist):
             ],
             "right": [
                 {"header": L["inauspicious"], "rows": [
-                    (L["rahu"], data["rahu_kalam"] or "-"),
-                    (L["yama"], data["yamaganda"] or "-"),
-                    (L["gulika"], data["gulikai_kalam"] or "-"),
-                    (L["durmuhurtam"], data["durmuhurtam"] or "-"),
-                    (L["varjyam"], data["varjyam"] or "-"),
+                    (L["rahu"], fmt_range_display(data["rahu_kalam"]) or "-"),
+                    (L["yama"], fmt_range_display(data["yamaganda"]) or "-"),
+                    (L["gulika"], fmt_range_display(data["gulikai_kalam"]) or "-"),
+                    (L["durmuhurtam"], fmt_range_display(data["durmuhurtam"]) or "-"),
+                    (L["varjyam"], fmt_range_display(data["varjyam"]) or "-"),
                 ]},
                 {"header": L["auspicious"], "rows": [
-                    (L["brahma"], data["brahma_muhurta"] or "-"),
-                    (L["abhijit"], abhijit_val),
-                    (L["amrit"], amrit_val),
+                    (L["brahma"], fmt_range_display(data["brahma_muhurta"]) or "-"),
+                    (L["abhijit"], fmt_range_display(abhijit_val)),
+                    (L["amrit"], fmt_range_display(amrit_val)),
+                ]},
+                {"header": L["soorya_rasi"], "rows": [
+                    ("", f"{L['sun_in']} {surya}"),
                 ]},
             ],
         }
@@ -1292,6 +1346,46 @@ def compute_tithi_chain(y, m, d):
     return " ".join(parts)
 
 
+# --------------------------------------------------------------------------
+# Soorya Rasi (Sun's sidereal zodiac sign) - the same Lahiri-ayanamsha Sun
+# position already computed for the Tithi engine above, just read off as a
+# 30-degree zodiac slot instead of a Sun-Moon angle. Computed at sunrise,
+# matching how a printed Panchangam names "today's" Rasi.
+# --------------------------------------------------------------------------
+
+RASHI_NAMES = ["Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya",
+               "Tula", "Vrischika", "Dhanu", "Makara", "Kumbha", "Meena"]
+
+RASHI_EN_WESTERN = {
+    "Mesha": "Aries", "Vrishabha": "Taurus", "Mithuna": "Gemini", "Karka": "Cancer",
+    "Simha": "Leo", "Kanya": "Virgo", "Tula": "Libra", "Vrischika": "Scorpio",
+    "Dhanu": "Sagittarius", "Makara": "Capricorn", "Kumbha": "Aquarius", "Meena": "Pisces",
+}
+
+RASHI_TE = {
+    "Mesha": "మేషం", "Vrishabha": "వృషభం", "Mithuna": "మిథునం", "Karka": "కర్కాటకం",
+    "Simha": "సింహం", "Kanya": "కన్య", "Tula": "తుల", "Vrischika": "వృశ్చికం",
+    "Dhanu": "ధనుస్సు", "Makara": "మకరం", "Kumbha": "కుంభం", "Meena": "మీనం",
+}
+
+RASHI_TA = {
+    "Mesha": "மேஷம்", "Vrishabha": "ரிஷபம்", "Mithuna": "மிதுனம்", "Karka": "கடகம்",
+    "Simha": "சிம்மம்", "Kanya": "கன்னி", "Tula": "துலாம்", "Vrischika": "விருச்சிகம்",
+    "Dhanu": "தனுசு", "Makara": "மகரம்", "Kumbha": "கும்பம்", "Meena": "மீனம்",
+}
+
+
+def compute_surya_rasi(y, m, d):
+    """Returns the Sanskrit rashi name (e.g. 'Simha') the Sun occupies at
+    sunrise, sidereal/Lahiri - same convention as compute_tithi_chain."""
+    midnight = datetime(y, m, d, 0, 0, tzinfo=IST)
+    sr = _sunrise_ist(midnight)
+    jd = _jd_from_ist(sr)
+    sun, _ = swe.calc_ut(jd, swe.SUN, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
+    idx = int(sun[0] // 30) % 12
+    return RASHI_NAMES[idx]
+
+
 MAX_ATTEMPTS = 5
 
 
@@ -1328,6 +1422,18 @@ def fetch_and_validate(date_str, weekday_full):
             data["tithi"] = computed_tithi
     except Exception as e:
         print(f"  WARNING: computed Tithi failed ({e}), falling back to scraped value", file=sys.stderr)
+
+    # Soorya Rasi - not scraped at all (Drik Panchang's day-panchang page
+    # doesn't surface it directly), computed fresh from the same sidereal
+    # Sun position as the Tithi engine above. Best-effort: if this fails,
+    # the card just shows "-" for this one field rather than failing the
+    # whole run, same fallback philosophy as the year-info extras.
+    data["surya_rasi"] = None
+    try:
+        dd, mm_, yyyy = date_str.split("/")
+        data["surya_rasi"] = compute_surya_rasi(int(yyyy), int(mm_), int(dd))
+    except Exception as e:
+        print(f"  WARNING: computed Soorya Rasi failed ({e})", file=sys.stderr)
 
     print("Parsed fields:")
     for k, v in data.items():
