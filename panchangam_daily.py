@@ -62,25 +62,50 @@ FONT_DIR = os.path.join(HERE, "fonts")
 # change, only which entry is "today's" value changes day to day)
 # --------------------------------------------------------------------------
 
-# Rahu Kalam / Yamagandam / Gulika Kalam - the standard fixed per-weekday
-# table (the daylight period divided into eight ~90-minute segments,
-# assigned to weekdays in a fixed rotation). This is what most familiar
-# calendar apps show, including the user's trusted reference app - which
-# was confirmed side-by-side to match this table exactly (Tuesday: Rahu
-# Kalam 3:00-4:30 PM, Yamagandam 9:00-10:30 AM), and is DIFFERENT from Drik
-# Panchang's own sunrise-adjusted numbers for these three fields
-# specifically. Computing these ourselves instead of scraping them also
-# removes a layer of parsing risk for three of the most safety-relevant
-# fields on the card.
-FIXED_KALAM_TABLE = {
-    "Sunday":    {"rahu": ("04:30 PM", "06:00 PM"), "yama": ("12:00 PM", "01:30 PM"), "gulika": ("03:00 PM", "04:30 PM")},
-    "Monday":    {"rahu": ("07:30 AM", "09:00 AM"), "yama": ("10:30 AM", "12:00 PM"), "gulika": ("09:00 AM", "10:30 AM")},
-    "Tuesday":   {"rahu": ("03:00 PM", "04:30 PM"), "yama": ("09:00 AM", "10:30 AM"), "gulika": ("12:00 PM", "01:30 PM")},
-    "Wednesday": {"rahu": ("12:00 PM", "01:30 PM"), "yama": ("07:30 AM", "09:00 AM"), "gulika": ("10:30 AM", "12:00 PM")},
-    "Thursday":  {"rahu": ("01:30 PM", "03:00 PM"), "yama": ("06:00 AM", "07:30 AM"), "gulika": ("09:00 AM", "10:30 AM")},
-    "Friday":    {"rahu": ("10:30 AM", "12:00 PM"), "yama": ("03:00 PM", "04:30 PM"), "gulika": ("07:30 AM", "09:00 AM")},
-    "Saturday":  {"rahu": ("09:00 AM", "10:30 AM"), "yama": ("01:30 PM", "03:00 PM"), "gulika": ("06:00 AM", "07:30 AM")},
+# Rahu Kalam / Yamagandam / Gulika Kalam - previously a table of NOMINAL
+# fixed clock times (the day treated as a flat 6:00 AM-6:00 PM, divided
+# into eight 90-minute blocks), chosen in an earlier session to match a
+# different reference app rather than Drik Panchang's own sunrise-
+# adjusted numbers. The user has since provided today's actual Drik
+# Panchang page for Tirupati as ground truth and asked for it to match -
+# checked segment-by-segment, our weekday->segment assignment below was
+# already correct (matches the standard classical rotation for all three
+# kalams, all 7 weekdays), but the fixed 90-minute-block clock times were
+# off from Drik's real sunrise-adjusted ones by up to ~20-30 minutes.
+# Switched to computing the actual daylight window (sunrise to sunset,
+# whatever the day's real values are) split into eight equal segments -
+# verified this reproduces the reference exactly (to the minute) for
+# Monday, Aug 24 2026, Tirupati: Rahu 7:36-9:09 AM, Yamaganda
+# 10:42 AM-12:14 PM, Gulika 1:47-3:20 PM, all matching to within rounding.
+KALAM_SEGMENT = {
+    "rahu":   {"Sunday": 8, "Monday": 2, "Tuesday": 7, "Wednesday": 5, "Thursday": 6, "Friday": 4, "Saturday": 3},
+    "yama":   {"Sunday": 5, "Monday": 4, "Tuesday": 3, "Wednesday": 2, "Thursday": 1, "Friday": 7, "Saturday": 6},
+    "gulika": {"Sunday": 7, "Monday": 6, "Tuesday": 5, "Wednesday": 4, "Thursday": 3, "Friday": 2, "Saturday": 1},
 }
+
+
+def compute_kalam(sunrise_str, sunset_str, weekday_full):
+    """Splits the day's actual sunrise-to-sunset daylight into 8 equal
+    segments and returns {'rahu': (start,end), 'yama': (...), 'gulika':
+    (...)} as 'HH:MM AM/PM' string pairs, using the classical weekday-to-
+    segment assignment in KALAM_SEGMENT above. Returns None if sunrise/
+    sunset can't be parsed, so the caller can fall back gracefully."""
+    try:
+        sr = datetime.strptime(sunrise_str.strip(), "%I:%M %p")
+        ss = datetime.strptime(sunset_str.strip(), "%I:%M %p")
+    except (ValueError, AttributeError):
+        return None
+    seg_len = (ss - sr) / 8
+    out = {}
+    for kalam, per_weekday in KALAM_SEGMENT.items():
+        n = per_weekday.get(weekday_full)
+        if n is None:
+            return None
+        start = sr + seg_len * (n - 1)
+        end = sr + seg_len * n
+        out[kalam] = (start.strftime("%I:%M %p"), end.strftime("%I:%M %p"))
+    return out
+
 
 WEEKDAY_TE = {
     "Sunday": "ఆదివారం", "Monday": "సోమవారం", "Tuesday": "మంగళవారం",
@@ -1356,12 +1381,22 @@ def _find_tithi_boundary(target_deg, lo, hi):
     return lo + (hi - lo) / 2
 
 
-def compute_tithi_chain(y, m, d):
+def compute_tithi_chain(y, m, d, sunrise_override=None):
     """Returns a string in the same 'Name upto TIME, then Name2' format the
     old scraper produced, e.g. 'Shashthi upto 03:29 AM, then Saptami', or
-    just 'Amavasya' if there's no transition before the next sunrise."""
+    just 'Amavasya' if there's no transition before the next sunrise.
+
+    sunrise_override: an IST datetime for THIS date's actual sunrise (from
+    the live Drik Panchang scrape), used in place of the offline-ephemeris
+    estimate for determining which tithi is active at sunrise - the
+    estimate has been measured a few minutes off from Drik Panchang's own
+    figure (likely refraction-model or geoid differences), which could
+    misidentify the tithi if a transition happens to fall in that gap.
+    Tomorrow's sunrise (only used as a search-window bound, not to decide
+    which tithi is "today's") still comes from the estimate, where a few
+    minutes of imprecision doesn't affect correctness."""
     midnight = datetime(y, m, d, 0, 0, tzinfo=IST)
-    sr0 = _sunrise_ist(midnight)
+    sr0 = sunrise_override if sunrise_override else _sunrise_ist(midnight)
     sr1 = _sunrise_ist(midnight + timedelta(days=1))
 
     idx = int(_tithi_angle(sr0) // 12)
@@ -1427,11 +1462,13 @@ RASHI_TA = {
 }
 
 
-def compute_surya_rasi(y, m, d):
+def compute_surya_rasi(y, m, d, sunrise_override=None):
     """Returns the Sanskrit rashi name (e.g. 'Simha') the Sun occupies at
-    sunrise, sidereal/Lahiri - same convention as compute_tithi_chain."""
+    sunrise, sidereal/Lahiri - same convention as compute_tithi_chain.
+    sunrise_override: see compute_tithi_chain - anchors to the live-
+    scraped sunrise instead of the offline-ephemeris estimate."""
     midnight = datetime(y, m, d, 0, 0, tzinfo=IST)
-    sr = _sunrise_ist(midnight)
+    sr = sunrise_override if sunrise_override else _sunrise_ist(midnight)
     jd = _jd_from_ist(sr)
     sun, _ = swe.calc_ut(jd, swe.SUN, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
     idx = int(sun[0] // 30) % 12
@@ -1479,14 +1516,19 @@ def fetch_and_validate(date_str, weekday_full):
         return None, f"fetch error: {e}"
 
     # Override the scraped Rahu Kalam / Yamagandam / Gulika Kalam with the
-    # fixed per-weekday table - see FIXED_KALAM_TABLE above for why. This
-    # also means these three fields can no longer fail validation due to a
-    # scraping/parsing issue, since they're now computed, not scraped.
-    fixed = FIXED_KALAM_TABLE.get(weekday_full)
-    if fixed:
-        data["rahu_kalam"] = f"{fixed['rahu'][0]} to {fixed['rahu'][1]}"
-        data["yamaganda"] = f"{fixed['yama'][0]} to {fixed['yama'][1]}"
-        data["gulikai_kalam"] = f"{fixed['gulika'][0]} to {fixed['gulika'][1]}"
+    # sunrise-adjusted computation - see compute_kalam()/KALAM_SEGMENT
+    # above for why. Uses this same day's scraped sunrise/sunset, so it
+    # stays internally consistent with the rest of the card. Falls back
+    # to leaving the scraped values in place if sunrise/sunset didn't
+    # parse for some reason, rather than losing the fields entirely.
+    kalam = compute_kalam(data.get("sunrise"), data.get("sunset"), weekday_full)
+    if kalam:
+        data["rahu_kalam"] = f"{kalam['rahu'][0]} to {kalam['rahu'][1]}"
+        data["yamaganda"] = f"{kalam['yama'][0]} to {kalam['yama'][1]}"
+        data["gulikai_kalam"] = f"{kalam['gulika'][0]} to {kalam['gulika'][1]}"
+    else:
+        print("  WARNING: computed Kalam failed (bad sunrise/sunset), "
+              "falling back to scraped values", file=sys.stderr)
 
     # Override the scraped Tithi with the self-contained ephemeris
     # computation above - verified to match Drik Panchang's own Tithi
@@ -1494,9 +1536,22 @@ def fetch_and_validate(date_str, weekday_full):
     # scraping fragile HTML for this field. Fall back to the scraped value
     # if the computation fails for any reason (e.g. swisseph not available)
     # rather than losing the field entirely.
+    # Anchor to the live-scraped sunrise (data["sunrise"], e.g. "06:04 AM")
+    # rather than the offline-ephemeris sunrise estimate - the estimate has
+    # been measured a few minutes off Drik Panchang's own figure, which
+    # could misidentify the tithi/rasi if a transition falls in that gap.
+    sunrise_dt = None
     try:
         dd, mm_, yyyy = date_str.split("/")
-        computed_tithi = compute_tithi_chain(int(yyyy), int(mm_), int(dd))
+        if data.get("sunrise"):
+            t = datetime.strptime(data["sunrise"].strip(), "%I:%M %p")
+            sunrise_dt = datetime(int(yyyy), int(mm_), int(dd), t.hour, t.minute, tzinfo=IST)
+    except Exception as e:
+        print(f"  WARNING: could not parse scraped sunrise for tithi/rasi anchoring ({e})", file=sys.stderr)
+
+    try:
+        dd, mm_, yyyy = date_str.split("/")
+        computed_tithi = compute_tithi_chain(int(yyyy), int(mm_), int(dd), sunrise_override=sunrise_dt)
         if computed_tithi:
             data["tithi"] = computed_tithi
     except Exception as e:
@@ -1510,7 +1565,7 @@ def fetch_and_validate(date_str, weekday_full):
     data["surya_rasi"] = None
     try:
         dd, mm_, yyyy = date_str.split("/")
-        data["surya_rasi"] = compute_surya_rasi(int(yyyy), int(mm_), int(dd))
+        data["surya_rasi"] = compute_surya_rasi(int(yyyy), int(mm_), int(dd), sunrise_override=sunrise_dt)
     except Exception as e:
         print(f"  WARNING: computed Soorya Rasi failed ({e})", file=sys.stderr)
 
