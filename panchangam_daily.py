@@ -62,49 +62,30 @@ FONT_DIR = os.path.join(HERE, "fonts")
 # change, only which entry is "today's" value changes day to day)
 # --------------------------------------------------------------------------
 
-# Rahu Kalam / Yamagandam / Gulika Kalam - previously a table of NOMINAL
-# fixed clock times (the day treated as a flat 6:00 AM-6:00 PM, divided
-# into eight 90-minute blocks), chosen in an earlier session to match a
-# different reference app rather than Drik Panchang's own sunrise-
-# adjusted numbers. The user has since provided today's actual Drik
-# Panchang page for Tirupati as ground truth and asked for it to match -
-# checked segment-by-segment, our weekday->segment assignment below was
-# already correct (matches the standard classical rotation for all three
-# kalams, all 7 weekdays), but the fixed 90-minute-block clock times were
-# off from Drik's real sunrise-adjusted ones by up to ~20-30 minutes.
-# Switched to computing the actual daylight window (sunrise to sunset,
-# whatever the day's real values are) split into eight equal segments -
-# verified this reproduces the reference exactly (to the minute) for
-# Monday, Aug 24 2026, Tirupati: Rahu 7:36-9:09 AM, Yamaganda
-# 10:42 AM-12:14 PM, Gulika 1:47-3:20 PM, all matching to within rounding.
-KALAM_SEGMENT = {
-    "rahu":   {"Sunday": 8, "Monday": 2, "Tuesday": 7, "Wednesday": 5, "Thursday": 6, "Friday": 4, "Saturday": 3},
-    "yama":   {"Sunday": 5, "Monday": 4, "Tuesday": 3, "Wednesday": 2, "Thursday": 1, "Friday": 7, "Saturday": 6},
-    "gulika": {"Sunday": 7, "Monday": 6, "Tuesday": 5, "Wednesday": 4, "Thursday": 3, "Friday": 2, "Saturday": 1},
+# Rahu Kalam / Yamagandam - a FIXED table of nominal clock times (the day
+# treated as a flat 6:00 AM-6:00 PM, divided into eight 90-minute blocks),
+# the same time every week on a given weekday regardless of the actual
+# date's sunrise/sunset. The user confirmed with several reference
+# examples spanning different weekdays and dates (Sep 13/14/15, 2026 -
+# Sun/Mon/Tue) that this FIXED weekly table is what's wanted for these
+# two fields specifically: verified each one matches this table exactly
+# (e.g. every Monday: Rahu 7:30-9:00 AM, Yamaganda 10:30 AM-12:00 PM,
+# regardless of the specific date). This is intentionally different from
+# what Drik Panchang's own site shows for these two fields - Drik's
+# numbers shift with each day's actual sunrise/sunset, this table doesn't.
+# Gulika Kalam is deliberately NOT in this table (removed on request) -
+# it uses the scraped Drik Panchang value directly, same as every other
+# field on the card, since the user wants everything except Rahu Kalam
+# and Yamagandam to match Drik exactly.
+FIXED_KALAM_TABLE = {
+    "Sunday":    {"rahu": ("04:30 PM", "06:00 PM"), "yama": ("12:00 PM", "01:30 PM")},
+    "Monday":    {"rahu": ("07:30 AM", "09:00 AM"), "yama": ("10:30 AM", "12:00 PM")},
+    "Tuesday":   {"rahu": ("03:00 PM", "04:30 PM"), "yama": ("09:00 AM", "10:30 AM")},
+    "Wednesday": {"rahu": ("12:00 PM", "01:30 PM"), "yama": ("07:30 AM", "09:00 AM")},
+    "Thursday":  {"rahu": ("01:30 PM", "03:00 PM"), "yama": ("06:00 AM", "07:30 AM")},
+    "Friday":    {"rahu": ("10:30 AM", "12:00 PM"), "yama": ("03:00 PM", "04:30 PM")},
+    "Saturday":  {"rahu": ("09:00 AM", "10:30 AM"), "yama": ("01:30 PM", "03:00 PM")},
 }
-
-
-def compute_kalam(sunrise_str, sunset_str, weekday_full):
-    """Splits the day's actual sunrise-to-sunset daylight into 8 equal
-    segments and returns {'rahu': (start,end), 'yama': (...), 'gulika':
-    (...)} as 'HH:MM AM/PM' string pairs, using the classical weekday-to-
-    segment assignment in KALAM_SEGMENT above. Returns None if sunrise/
-    sunset can't be parsed, so the caller can fall back gracefully."""
-    try:
-        sr = datetime.strptime(sunrise_str.strip(), "%I:%M %p")
-        ss = datetime.strptime(sunset_str.strip(), "%I:%M %p")
-    except (ValueError, AttributeError):
-        return None
-    seg_len = (ss - sr) / 8
-    out = {}
-    for kalam, per_weekday in KALAM_SEGMENT.items():
-        n = per_weekday.get(weekday_full)
-        if n is None:
-            return None
-        start = sr + seg_len * (n - 1)
-        end = sr + seg_len * n
-        out[kalam] = (start.strftime("%I:%M %p"), end.strftime("%I:%M %p"))
-    return out
 
 
 WEEKDAY_TE = {
@@ -137,8 +118,9 @@ NAKSHATRA_TE = {
     "Ashwini": "అశ్విని", "Bharani": "భరణి", "Krittika": "కృత్తిక", "Rohini": "రోహిణి",
     "Mrigashira": "మృగశిర", "Ardra": "ఆరుద్ర", "Punarvasu": "పునర్వసు", "Pushya": "పుష్యమి",
     "Ashlesha": "ఆశ్లేష", "Magha": "మఖ", "Purva Phalguni": "పుబ్బ", "Uttara Phalguni": "ఉత్తర",
-    "Hasta": "హస్త", "Chitra": "చిత్త", "Swati": "స్వాతి", "Vishakha": "విశాఖ",
-    "Anuradha": "అనూరాధ", "Jyeshtha": "జ్యేష్ఠ", "Mula": "మూల", "Purva Ashadha": "పూర్వాషాఢ",
+    "Hasta": "హస్త", "Chitra": "చిత్త", "Swati": "స్వాతి", "Vishakha": "విశాఖ", "Vishaka": "విశాఖ",
+    "Anuradha": "అనూరాధ", "Jyeshtha": "జ్యేష్ఠ", "Jyeshta": "జ్యేష్ఠ",
+    "Mula": "మూల", "Moola": "మూల", "Purva Ashadha": "పూర్వాషాఢ",
     "Uttara Ashadha": "ఉత్తరాషాఢ", "Shravana": "శ్రవణం", "Dhanishtha": "ధనిష్ఠ",
     "Shatabhisha": "శతభిషం", "Purva Bhadrapada": "పూర్వాభాద్ర", "Uttara Bhadrapada": "ఉత్తరాభాద్ర",
     "Revati": "రేవతి",
@@ -147,8 +129,9 @@ NAKSHATRA_TA = {
     "Ashwini": "அஸ்வினி", "Bharani": "பரணி", "Krittika": "கார்த்திகை", "Rohini": "ரோகிணி",
     "Mrigashira": "மிருகசீரிடம்", "Ardra": "திருவாதிரை", "Punarvasu": "புனர்பூசம்", "Pushya": "பூசம்",
     "Ashlesha": "ஆயில்யம்", "Magha": "மகம்", "Purva Phalguni": "பூரம்", "Uttara Phalguni": "உத்திரம்",
-    "Hasta": "அஸ்தம்", "Chitra": "சித்திரை", "Swati": "சுவாதி", "Vishakha": "விசாகம்",
-    "Anuradha": "அனுஷம்", "Jyeshtha": "கேட்டை", "Mula": "மூலம்", "Purva Ashadha": "பூராடம்",
+    "Hasta": "அஸ்தம்", "Chitra": "சித்திரை", "Swati": "சுவாதி", "Vishakha": "விசாகம்", "Vishaka": "விசாகம்",
+    "Anuradha": "அனுஷம்", "Jyeshtha": "கேட்டை", "Jyeshta": "கேட்டை",
+    "Mula": "மூலம்", "Moola": "மூலம்", "Purva Ashadha": "பூராடம்",
     "Uttara Ashadha": "உத்திராடம்", "Shravana": "திருவோணம்", "Dhanishtha": "அவிட்டம்",
     "Shatabhisha": "சதயம்", "Purva Bhadrapada": "பூரட்டாதி", "Uttara Bhadrapada": "உத்திரட்டாதி",
     "Revati": "ரேவதி",
@@ -195,13 +178,13 @@ KARANA_TA = {
 
 MASA_TE = {
     "Chaitra": "చైత్ర", "Vaishakha": "వైశాఖ", "Jyeshtha": "జ్యేష్ఠ", "Ashadha": "ఆషాఢ",
-    "Shravana": "శ్రావణ", "Bhadrapada": "భాద్రపద", "Ashwin": "ఆశ్వయుజ", "Ashwina": "ఆశ్వయుజ",
+    "Shravana": "శ్రావణ", "Sravana": "శ్రావణ", "Bhadrapada": "భాద్రపద", "Ashwin": "ఆశ్వయుజ", "Ashwina": "ఆశ్వయుజ",
     "Kartika": "కార్తీక", "Margashirsha": "మార్గశిర", "Margashira": "మార్గశిర",
     "Pausha": "పుష్య", "Magha": "మాఘ", "Phalguna": "ఫాల్గుణ",
 }
 MASA_TA = {
     "Chaitra": "சைத்திர", "Vaishakha": "வைசாக", "Jyeshtha": "ஜேஷ்ட", "Ashadha": "ஆஷாட",
-    "Shravana": "ஸ்ராவண", "Bhadrapada": "பாத்ரபத", "Ashwin": "ஆஸ்வயுஜ", "Ashwina": "ஆஸ்வயுஜ",
+    "Shravana": "ஸ்ராவண", "Sravana": "ஸ்ராவண", "Bhadrapada": "பாத்ரபத", "Ashwin": "ஆஸ்வயுஜ", "Ashwina": "ஆஸ்வயுஜ",
     "Kartika": "கார்த்திக", "Margashirsha": "மார்கசீர்ஷ", "Margashira": "மார்கசீர்ஷ",
     "Pausha": "புஷ்ய", "Magha": "மாக", "Phalguna": "பால்குன",
 }
@@ -234,7 +217,7 @@ SAMVATSARA_TE = {
     "Vikriti": "వికృతి", "Khara": "ఖర", "Nandana": "నందన", "Vijaya": "విజయ", "Jaya": "జయ",
     "Manmatha": "మన్మథ", "Durmukhi": "దుర్ముఖి", "Hevilambi": "హేవిళంబి", "Vilambi": "విళంబి",
     "Vikari": "వికారి", "Sharvari": "శార్వరి", "Plava": "ప్లవ", "Shubhakrit": "శుభకృత్",
-    "Shobhakrit": "శోభకృత్", "Krodhi": "క్రోధి", "Vishvavasu": "విశ్వావసు", "Parabhava": "పరాభవ",
+    "Shobhakrit": "శోభకృత్", "Krodhi": "క్రోధి", "Vishvavasu": "విశ్వావసు", "Parabhava": "పరాభవ", "Paraabhava": "పరాభవ",
     "Plavanga": "ప్లవంగ", "Kilaka": "కీలక", "Saumya": "సౌమ్య", "Sadharana": "సాధారణ",
     "Virodhikrit": "విరోధికృత్", "Paridhavi": "పరీధావి", "Pramadi": "ప్రమాది", "Pramadicha": "ప్రమాది",
     "Ananda": "ఆనంద", "Rakshasa": "రాక్షస", "Nala": "నల", "Anala": "నల", "Pingala": "పింగళ",
@@ -252,7 +235,7 @@ SAMVATSARA_TA = {
     "Vikriti": "விக்ருதி", "Khara": "கர", "Nandana": "நந்தன", "Vijaya": "விஜய", "Jaya": "ஜய",
     "Manmatha": "மன்மத", "Durmukhi": "துன்முகி", "Hevilambi": "ஹேவிளம்பி", "Vilambi": "விளம்பி",
     "Vikari": "விகாரி", "Sharvari": "சார்வரி", "Plava": "பிலவ", "Shubhakrit": "சுபகிருது",
-    "Shobhakrit": "சோபகிருது", "Krodhi": "குரோதி", "Vishvavasu": "விசுவாசு", "Parabhava": "பராபவ",
+    "Shobhakrit": "சோபகிருது", "Krodhi": "குரோதி", "Vishvavasu": "விசுவாசு", "Parabhava": "பராபவ", "Paraabhava": "பராபவ",
     "Plavanga": "பிலவங்க", "Kilaka": "கீலக", "Saumya": "சௌமிய", "Sadharana": "சாதாரண",
     "Virodhikrit": "விரோதிகிருது", "Paridhavi": "பரிதாபி", "Pramadi": "பிரமாதீச", "Pramadicha": "பிரமாதீச",
     "Ananda": "ஆனந்த", "Rakshasa": "ராட்சச", "Nala": "நள", "Anala": "நள", "Pingala": "பிங்கள",
@@ -327,6 +310,7 @@ LABELS = {
         "ritu": "Ritu", "ayana": "Ayana", "vara": "Vara", "soorya_rasi": "Soorya Rasi",
         "sun_in": "Sun in", "shaka_samvat": "Shaka Samvat", "gata_kali": "Gata Kali",
         "date": "Date", "day": "Day", "godhuli": "Godhuli",
+        "sun_sign": "Sun Sign", "moon_sign": "Moon Sign",
     },
     "te": {
         "title": "నేటి పంచాంగం", "core": "పంచాంగ వివరాలు", "sunmoon": "సూర్య చంద్ర సమయాలు",
@@ -341,6 +325,7 @@ LABELS = {
         "ritu": "ఋతువు", "ayana": "అయనం", "vara": "వారం", "soorya_rasi": "సూర్య రాశి",
         "sun_in": "సూర్యుడు", "shaka_samvat": "శాలివాహన శకం", "gata_kali": "గత కలి",
         "date": "తేదీ", "day": "వారం", "godhuli": "గోధూళి ముహూర్తం",
+        "sun_sign": "సూర్య రాశి", "moon_sign": "చంద్ర రాశి",
     },
     "ta": {
         "title": "இன்றைய பஞ்சாங்கம்", "core": "பஞ்சாங்க விவரங்கள்", "sunmoon": "சூரிய சந்திர நேரங்கள்",
@@ -355,6 +340,7 @@ LABELS = {
         "ritu": "ருது", "ayana": "அயனம்", "vara": "வாரம்", "soorya_rasi": "சூரிய ராசி",
         "sun_in": "சூரியன்", "shaka_samvat": "சாலிவாஹன சகம்", "gata_kali": "கத கலி",
         "date": "தேதி", "day": "வாரம்", "godhuli": "கோதூளி முகூர்த்தம்",
+        "sun_sign": "சூரிய ராசி", "moon_sign": "சந்திர ராசி",
     },
 }
 
@@ -766,12 +752,10 @@ ACCENT_COL = (95, 40, 130)      # kept for reference; no longer used for the con
 TEXT_COL = (18, 14, 10)         # near-black, max contrast on white
 LINE_COL = (205, 200, 210)      # thin divider / border lines
 SUBTITLE_COL = (95, 40, 130)
-# Content-area palette: matches the reference's warm parchment card look
-# (cream background, gold-bronze borders, dark maroon-brown text) instead
-# of white/purple - the header/footer purple banner is left untouched,
-# but a plain white card sitting right below a purple banner read as a
-# mismatched, thin, under-scaled design, not the "big, elegant" reference.
-CARD_BG_COL = (247, 237, 213)
+# Content-area palette: gold-bronze borders and dark maroon-brown text on
+# a plain white card background (per explicit request - a warm cream fill
+# was used earlier but the user asked for it back to white).
+CARD_BG_COL = (255, 255, 255)
 BORDER_COL = (185, 138, 52)
 LABEL_COL = (109, 27, 27)
 VALUE_COL = (46, 27, 14)
@@ -875,22 +859,25 @@ def _measure_v2(draw, lang, blocks, content_w, font_scale, scale):
     until everything fits between the template's header and footer bars.
 
     blocks = {
-        "info_bar": {"tl": str, "tr": str, "bl": str, "br": str} (2x2 grid -
-                     Shaka Samvat/Date on top, Gata Kali/Day below - the
-                     reference's prominent top info band),
+        "info_bar": {"date": str, "day": str} (a single big bold centered
+                     line spanning the full width - the biggest text on
+                     the card, meant to be readable at a glance),
         "left_box": [(label, value), ...] (Samvatsara through Karana, one
                      bordered box, each field its own bulleted row),
         "right_boxes": [{"pill": str, "pill_color": (r,g,b),
                           "rows": [(label, value), ...]}, ...] (Inauspicious
                          Timings / Auspicious Timings, each its own
                          bordered box with a solid-color pill header),
-        "bottom_box": [(label, value), ...] (Sunrise/Sunset/Moonrise/
-                       Moonset, one full-width bordered box).
+        "bottom_box": {"left": [(label, value), ...], "right": [(label, value), ...]}
+                      (Sunrise/Sunset/Moonrise/Moonset on the left, Sun
+                       Sign/Moon Sign on the right - one full-width
+                       bordered box split into two columns at the same
+                       divider position as left_box/right_boxes above).
     }
     """
-    label_size = max(int(34 * scale * font_scale), 14)
-    value_size = max(int(34 * scale * font_scale), 14)
-    pill_size = max(int(33 * scale * font_scale), 14)
+    label_size = max(int(38 * scale * font_scale), 15)
+    value_size = max(int(38 * scale * font_scale), 15)
+    pill_size = max(int(37 * scale * font_scale), 15)
 
     fonts = {
         "label": font_for(lang, "bold", label_size),
@@ -930,9 +917,18 @@ def _measure_v2(draw, lang, blocks, content_w, font_scale, scale):
 
     main_row_h = max(left_box_h, right_col_h)
 
-    bottom_rows_geom, bottom_rows_h = _measure_box_rows(
-        draw, blocks["bottom_box"], fonts["label"], fonts["value"],
-        content_w, row_h, pad, bullet_d, gap)
+    # Bottom box is two columns (not one), split at the same x-position as
+    # the left_box/right_boxes divider above, for a consistent grid look:
+    # Sunrise/Sunset/Moonrise/Moonset on the left, Sun Sign/Moon Sign on
+    # the right - rather than one narrow list with a lot of empty space
+    # beside it.
+    bottom_left_geom, bottom_left_h = _measure_box_rows(
+        draw, blocks["bottom_box"]["left"], fonts["label"], fonts["value"],
+        left_col_w, row_h, pad, bullet_d, gap)
+    bottom_right_geom, bottom_right_h = _measure_box_rows(
+        draw, blocks["bottom_box"]["right"], fonts["label"], fonts["value"],
+        right_col_w, row_h, pad, bullet_d, gap)
+    bottom_rows_h = max(bottom_left_h, bottom_right_h)
     bottom_box_h = bottom_rows_h + 2 * pad
 
     total_h = box_gap + main_row_h + box_gap + bottom_box_h
@@ -942,7 +938,7 @@ def _measure_v2(draw, lang, blocks, content_w, font_scale, scale):
         "left_col_w": left_col_w, "right_col_w": right_col_w,
         "left_box_h": left_box_h, "right_col_h": right_col_h, "bottom_box_h": bottom_box_h,
         "left_rows_geom": left_rows_geom, "right_boxes_geom": right_boxes_geom,
-        "bottom_rows_geom": bottom_rows_geom,
+        "bottom_left_geom": bottom_left_geom, "bottom_right_geom": bottom_right_geom,
         "fonts": fonts, "pad": pad, "bullet_d": bullet_d, "gap": gap,
         "col_gap": col_gap, "box_gap": box_gap, "row_h": row_h, "pill_h": pill_h,
         "border_w": border_w, "radius": radius,
@@ -951,16 +947,15 @@ def _measure_v2(draw, lang, blocks, content_w, font_scale, scale):
 
 def render_card(lang, blocks, outpath):
     """Draws a bordered-box Panchang card onto the temple's template
-    image, modeled closely on the reference layout: a large 2x2 info grid
-    (Shaka Samvat/Gata Kali left, Date/Day right - deliberately the
-    biggest text on the card, readable at a glance), a left box listing
-    Samvatsara through Karana as bulleted 'Label : Value' rows, a right
-    column of two pill-headed boxes (Inauspicious/Auspicious Timings),
-    and a bottom box for Sunrise/Sunset/Moonrise/Moonset - all on a warm
-    parchment-cream background with gold-bronze borders (matching the
-    reference's card look), composited onto this project's own header/
-    footer template. Font size auto-shrinks as needed so nothing ever
-    overlaps or runs past the footer bar."""
+    image: a single big bold Date | Day banner spanning the full width
+    (deliberately the biggest text on the card, readable at a glance), a
+    left box listing Samvatsara through Karana as bulleted 'Label : Value'
+    rows, a right column of two pill-headed boxes (Inauspicious/
+    Auspicious Timings), and a bottom box for Sunrise/Sunset/Moonrise/
+    Moonset plus Sun Sign/Moon Sign - on a white background with gold-
+    bronze borders, composited onto this project's own header/footer
+    template. Font size auto-shrinks as needed so nothing ever overlaps
+    or runs past the footer bar."""
     base = Image.open(TEMPLATE_PATH).convert("RGB")
     W, H = base.size
     img = base.copy()
@@ -983,27 +978,24 @@ def render_card(lang, blocks, outpath):
     d.rectangle([0, int(H * HEADER_VISUAL_BOTTOM_FRAC), W, int(H * FOOTER_VISUAL_TOP_FRAC)],
                 fill=CARD_BG_COL)
 
-    # Info grid gets its own sizing pass first, deliberately the biggest
-    # text on the card (matching the reference's prominent date section,
-    # readable at first glance) - a 2x2 grid: Shaka Samvat / Date on top,
-    # Gata Kali / Day below.
-    cells = [blocks["info_bar"]["tl"], blocks["info_bar"]["tr"],
-             blocks["info_bar"]["bl"], blocks["info_bar"]["br"]]
-    half_w = content_w / 2
-    cell_inner_w = half_w - int(30 * scale)
-    info_size = max(int(46 * scale), 16)
-    while info_size > 15:
+    # Info bar gets its own sizing pass first, deliberately the biggest,
+    # boldest text on the card (readable at a glance, not something you
+    # need to zoom in for) - a single line spanning the full width:
+    # Date | Day. Shaka Samvat/Gata Kali were dropped from this bar per
+    # request.
+    info_text = f"{blocks['info_bar']['date']}   |   {blocks['info_bar']['day']}"
+    inner_w = content_w - int(40 * scale)
+    info_size = max(int(66 * scale), 18)
+    while info_size > 16:
         f_info = font_for(lang, "bold", info_size)
-        widths = [d.textbbox((0, 0), c, font=f_info)[2] - d.textbbox((0, 0), c, font=f_info)[0]
-                  for c in cells]
-        if max(widths) <= cell_inner_w:
+        bbox = d.textbbox((0, 0), info_text, font=f_info)
+        if (bbox[2] - bbox[0]) <= inner_w:
             break
         info_size -= 1
     else:
         f_info = font_for(lang, "bold", info_size)
-    info_line_h = info_size + int(16 * scale)
-    info_pad = max(int(18 * scale), 9)
-    info_h = 2 * info_line_h + 2 * info_pad
+    info_pad = max(int(20 * scale), 10)
+    info_h = info_size + int(20 * scale) + 2 * info_pad
     box_gap0 = max(int(20 * scale), 10)
     available = bottom - content_top - info_h - box_gap0
 
@@ -1039,7 +1031,9 @@ def render_card(lang, blocks, outpath):
     right_col_h = sum(pill_h + _rows_h(g["rows"], row_h) + 2 * pad for g in m["right_boxes_geom"])
     right_col_h += box_gap * max(len(m["right_boxes_geom"]) - 1, 0)
     main_row_h = max(left_box_h, right_col_h)
-    bottom_box_h = _rows_h(m["bottom_rows_geom"], row_h) + 2 * pad
+    bottom_left_h = _rows_h(m["bottom_left_geom"], row_h)
+    bottom_right_h = _rows_h(m["bottom_right_geom"], row_h)
+    bottom_box_h = max(bottom_left_h, bottom_right_h) + 2 * pad
 
     # Any leftover vertical space goes into stretching the bottom box and
     # the gaps between rows in whichever main-row box is shorter, so the
@@ -1060,19 +1054,11 @@ def render_card(lang, blocks, outpath):
 
     y = content_top
 
-    # Info grid: bordered box, 2x2 - Shaka Samvat/Date on top, Gata
-    # Kali/Day below.
+    # Info bar: bordered strip, one big centered line - Date | Day.
     d.rounded_rectangle([left, y, right, y + info_h], radius=radius,
                          outline=BORDER_COL, width=border_w)
-    mid_x = left + content_w / 2
-    ly1 = y + info_pad
-    ly2 = y + info_pad + info_line_h
-    d.text((left + info_pad, ly1), cells[0], font=f_info, fill=LABEL_COL, anchor="la")
-    d.text((mid_x + info_pad / 2, ly1), cells[1], font=f_info, fill=LABEL_COL, anchor="la")
-    d.text((left + info_pad, ly2), cells[2], font=f_info, fill=LABEL_COL, anchor="la")
-    d.text((mid_x + info_pad / 2, ly2), cells[3], font=f_info, fill=LABEL_COL, anchor="la")
-    d.line([(mid_x, y + info_pad / 2), (mid_x, y + info_h - info_pad / 2)],
-           fill=BORDER_COL, width=max(1, border_w - 1))
+    d.text((left + content_w / 2, y + info_h / 2), info_text,
+            font=f_info, fill=LABEL_COL, anchor="mm")
     y += info_h + box_gap0
 
     # Left box: Samvatsara through Karana, stretched to fill main_row_h
@@ -1106,15 +1092,27 @@ def render_card(lang, blocks, outpath):
 
     y += main_row_h + box_gap
 
-    # Bottom box: Sunrise/Sunset/Moonrise/Moonset, full width.
+    # Bottom box: two columns, split at the same x-position as the
+    # left_box/right_boxes divider above - Sunrise/Sunset/Moonrise/
+    # Moonset on the left, Sun Sign/Moon Sign on the right (rather than
+    # one narrow list with a lot of empty space beside it). The shorter
+    # column is vertically centered so it doesn't look stranded at the
+    # top of a taller box.
     d.rounded_rectangle([left, y, right, y + bottom_box_h], radius=radius,
                          outline=BORDER_COL, width=border_w)
-    bottom_rows_h = _rows_h(m["bottom_rows_geom"], row_h)
-    n_bottom = len(m["bottom_rows_geom"])
-    bottom_extra_step = max(0, (bottom_box_h - 2 * pad - bottom_rows_h) / max(n_bottom, 1))
-    _draw_box_rows(d, m["bottom_rows_geom"], left + pad, y + pad, row_h,
+    bmid_x = left + left_col_w + col_gap / 2
+    d.line([(bmid_x, y + pad / 2), (bmid_x, y + bottom_box_h - pad / 2)],
+           fill=BORDER_COL, width=max(1, border_w - 1))
+    bottom_left_h = _rows_h(m["bottom_left_geom"], row_h)
+    bottom_right_h = _rows_h(m["bottom_right_geom"], row_h)
+    by_left = y + (bottom_box_h - bottom_left_h) / 2
+    by_right = y + (bottom_box_h - bottom_right_h) / 2
+    _draw_box_rows(d, m["bottom_left_geom"], left + pad, by_left, row_h,
                     fonts["label"], fonts["value"], bullet_d, gap,
-                    LABEL_COL, LABEL_COL, VALUE_COL, extra_step=bottom_extra_step)
+                    LABEL_COL, LABEL_COL, VALUE_COL)
+    _draw_box_rows(d, m["bottom_right_geom"], left + left_col_w + col_gap, by_right, row_h,
+                    fonts["label"], fonts["value"], bullet_d, gap,
+                    LABEL_COL, LABEL_COL, VALUE_COL)
 
     img.save(outpath, quality=92)
     return outpath
@@ -1156,16 +1154,21 @@ def build_images(data, dt_ist):
     te_surya = RASHI_TE.get(surya_raw, surya_raw) if surya_raw else "-"
     ta_surya = RASHI_TA.get(surya_raw, surya_raw) if surya_raw else "-"
 
+    chandra_raw = data.get("chandra_rasi")
+    en_chandra = f"{chandra_raw} ({RASHI_EN_WESTERN[chandra_raw]})" if chandra_raw else "-"
+    te_chandra = RASHI_TE.get(chandra_raw, chandra_raw) if chandra_raw else "-"
+    ta_chandra = RASHI_TA.get(chandra_raw, chandra_raw) if chandra_raw else "-"
+
     outputs = []
-    for lang, tithi, nak, yoga, kar, paksha, weekday, month_name, samv, masa, ritu, ayana, surya in [
+    for lang, tithi, nak, yoga, kar, paksha, weekday, month_name, samv, masa, ritu, ayana, surya, chandra in [
         ("en", apply_en_overrides(data["tithi"]), apply_en_overrides(data["nakshatra"]),
          apply_en_overrides(data["yoga"]), apply_en_overrides(data["karana"]),
          data["paksha"], data["weekday_full"], dt_ist.strftime("%B"),
-         (samv_raw or "-"), en_masa, en_ritu, en_ayana, en_surya),
+         (samv_raw or "-"), en_masa, en_ritu, en_ayana, en_surya, en_chandra),
         ("te", te_tithi, te_nak, te_yoga, te_kar, te_paksha, te_weekday, MONTH_TE[dt_ist.month],
-         te_samv, te_masa, te_ritu, te_ayana, te_surya),
+         te_samv, te_masa, te_ritu, te_ayana, te_surya, te_chandra),
         ("ta", ta_tithi, ta_nak, ta_yoga, ta_kar, ta_paksha, ta_weekday, MONTH_TA[dt_ist.month],
-         ta_samv, ta_masa, ta_ritu, ta_ayana, ta_surya),
+         ta_samv, ta_masa, ta_ritu, ta_ayana, ta_surya, ta_chandra),
     ]:
         L = LABELS[lang]
         city = {"en": CITY_LABEL_EN, "te": CITY_LABEL_TE, "ta": CITY_LABEL_TA}[lang]
@@ -1190,22 +1193,15 @@ def build_images(data, dt_ist):
         moonrise_val = _na_if_absent(data["moonrise"]) or "-"
         moonset_val = _na_if_absent(data["moonset"]) or "-"
 
-        # Box layout matched closely to the reference design: a top info
-        # strip (Shaka Samvat/Gata Kali left, Date/Day right), a left box
-        # of Samvatsara through Karana as bulleted "Label : Value" rows
-        # (Tithi/Nakshatra/Yoga/Karana shown in the reference's compact
-        # "Name (end time)" form via fmt_compact_chain), a right column of
-        # pill-headed Inauspicious/Auspicious Timings boxes, and a bottom
-        # box for Sunrise/Sunset/Moonrise/Moonset - kept on this project's
-        # own header/footer template as before.
-        shaka_year = data.get("shaka_year") or "-"
-        gata_kali = data.get("gata_kali")
-        info_bar = {
-            "tl": f"{L['shaka_samvat']}: {shaka_year} {samv}",
-            "tr": f"{L['date']}: {date_str}",
-            "bl": f"{L['gata_kali']}: {gata_kali}" if gata_kali else f"{L['gata_kali']}: -",
-            "br": f"{L['day']}: {weekday}",
-        }
+        # Box layout: a single big bold Date | Day banner spanning the
+        # full width, a left box of Samvatsara through Karana as bulleted
+        # "Label : Value" rows (Tithi/Nakshatra/Yoga/Karana shown in the
+        # compact "Name (end time)" form via fmt_compact_chain), a right
+        # column of pill-headed Inauspicious/Auspicious Timings boxes,
+        # and a bottom box for Sunrise/Sunset/Moonrise/Moonset plus Sun
+        # Sign/Moon Sign - kept on this project's own header/footer
+        # template as before.
+        info_bar = {"date": date_str, "day": weekday}
 
         godhuli_val = fmt_range_display(data.get("godhuli")) or "-"
 
@@ -1238,12 +1234,18 @@ def build_images(data, dt_ist):
                     (L["godhuli"], godhuli_val),
                 ]},
             ],
-            "bottom_box": [
-                (L["sunrise"], data["sunrise"] or "-"),
-                (L["sunset"], data["sunset"] or "-"),
-                (L["moonrise"], moonrise_val),
-                (L["moonset"], moonset_val),
-            ],
+            "bottom_box": {
+                "left": [
+                    (L["sunrise"], data["sunrise"] or "-"),
+                    (L["sunset"], data["sunset"] or "-"),
+                    (L["moonrise"], moonrise_val),
+                    (L["moonset"], moonset_val),
+                ],
+                "right": [
+                    (L["sun_sign"], surya),
+                    (L["moon_sign"], chandra),
+                ],
+            },
         }
 
         outpath = os.path.join(HERE, f"panchangam_{lang}.jpg")
@@ -1475,6 +1477,26 @@ def compute_surya_rasi(y, m, d, sunrise_override=None):
     return RASHI_NAMES[idx]
 
 
+def compute_chandra_rasi(y, m, d, sunrise_override=None):
+    """Same idea as compute_surya_rasi but for the Moon. Unlike the Sun
+    (which takes a full month to cross one rashi), the Moon crosses a
+    rashi roughly every 2.25 days and can genuinely change rashi partway
+    through a single Panchang day - Drik Panchang's own sidebar shows
+    this as e.g. 'Moonsign: Makara upto 12:27 PM'. This simplified
+    version only reports the rashi AT sunrise (a single value, no
+    mid-day transition), same convention as Soorya Rasi elsewhere on
+    this card - a reasonable simplification given we don't have the
+    boundary-crossing search machinery for the Moon that the Tithi engine
+    has for Sun-Moon angle, but one worth knowing about if the exact
+    transition time is ever needed."""
+    midnight = datetime(y, m, d, 0, 0, tzinfo=IST)
+    sr = sunrise_override if sunrise_override else _sunrise_ist(midnight)
+    jd = _jd_from_ist(sr)
+    moon, _ = swe.calc_ut(jd, swe.MOON, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
+    idx = int(moon[0] // 30) % 12
+    return RASHI_NAMES[idx]
+
+
 def compute_gata_kali(shaka_year):
     """Elapsed Kali Yuga year count from the Shaka Samvat year - simple,
     fixed arithmetic (Kali Yuga began 3179 years before the Shaka era),
@@ -1515,20 +1537,15 @@ def fetch_and_validate(date_str, weekday_full):
     except Exception as e:
         return None, f"fetch error: {e}"
 
-    # Override the scraped Rahu Kalam / Yamagandam / Gulika Kalam with the
-    # sunrise-adjusted computation - see compute_kalam()/KALAM_SEGMENT
-    # above for why. Uses this same day's scraped sunrise/sunset, so it
-    # stays internally consistent with the rest of the card. Falls back
-    # to leaving the scraped values in place if sunrise/sunset didn't
-    # parse for some reason, rather than losing the fields entirely.
-    kalam = compute_kalam(data.get("sunrise"), data.get("sunset"), weekday_full)
-    if kalam:
-        data["rahu_kalam"] = f"{kalam['rahu'][0]} to {kalam['rahu'][1]}"
-        data["yamaganda"] = f"{kalam['yama'][0]} to {kalam['yama'][1]}"
-        data["gulikai_kalam"] = f"{kalam['gulika'][0]} to {kalam['gulika'][1]}"
-    else:
-        print("  WARNING: computed Kalam failed (bad sunrise/sunset), "
-              "falling back to scraped values", file=sys.stderr)
+    # Override the scraped Rahu Kalam / Yamagandam with the fixed
+    # per-weekday table - see FIXED_KALAM_TABLE above for why. Gulika
+    # Kalam is deliberately left as-is (the scraped Drik Panchang value),
+    # since the user wants everything except these two to match Drik
+    # exactly.
+    fixed = FIXED_KALAM_TABLE.get(weekday_full)
+    if fixed:
+        data["rahu_kalam"] = f"{fixed['rahu'][0]} to {fixed['rahu'][1]}"
+        data["yamaganda"] = f"{fixed['yama'][0]} to {fixed['yama'][1]}"
 
     # Override the scraped Tithi with the self-contained ephemeris
     # computation above - verified to match Drik Panchang's own Tithi
@@ -1557,17 +1574,24 @@ def fetch_and_validate(date_str, weekday_full):
     except Exception as e:
         print(f"  WARNING: computed Tithi failed ({e}), falling back to scraped value", file=sys.stderr)
 
-    # Soorya Rasi - not scraped at all (Drik Panchang's day-panchang page
-    # doesn't surface it directly), computed fresh from the same sidereal
-    # Sun position as the Tithi engine above. Best-effort: if this fails,
-    # the card just shows "-" for this one field rather than failing the
-    # whole run, same fallback philosophy as the year-info extras.
+    # Soorya Rasi / Chandra Rasi (Sun/Moon sign) - not scraped at all
+    # (Drik Panchang's day-panchang page doesn't surface either directly),
+    # computed fresh from the same sidereal Sun/Moon position as the
+    # Tithi engine above. Best-effort: if this fails, the card just shows
+    # "-" for the field rather than failing the whole run, same fallback
+    # philosophy as the year-info extras.
     data["surya_rasi"] = None
+    data["chandra_rasi"] = None
     try:
         dd, mm_, yyyy = date_str.split("/")
         data["surya_rasi"] = compute_surya_rasi(int(yyyy), int(mm_), int(dd), sunrise_override=sunrise_dt)
     except Exception as e:
         print(f"  WARNING: computed Soorya Rasi failed ({e})", file=sys.stderr)
+    try:
+        dd, mm_, yyyy = date_str.split("/")
+        data["chandra_rasi"] = compute_chandra_rasi(int(yyyy), int(mm_), int(dd), sunrise_override=sunrise_dt)
+    except Exception as e:
+        print(f"  WARNING: computed Chandra Rasi failed ({e})", file=sys.stderr)
 
     # Gata Kali - fixed arithmetic from the Shaka year, and Godhuli
     # Muhurta - fixed offset from sunset. Both verified against a real
