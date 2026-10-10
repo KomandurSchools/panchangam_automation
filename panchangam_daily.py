@@ -160,11 +160,19 @@ KARANA_TE = {
     "Bava": "బవ", "Balava": "బాలవ", "Kaulava": "కౌలవ", "Taitila": "తైతిల",
     "Garaja": "గరజ", "Vanija": "వణిజ", "Vishti": "భద్ర", "Shakuni": "శకుని",
     "Chatushpada": "చతుష్పాద", "Naga": "నాగ", "Nagava": "నాగ", "Kimstughna": "కింస్తుఘ్న",
+    # Drik Panchang's own rendered spelling for this karana is "Kinstughna"
+    # (n, not m) - confirmed live on drikpanchang.com - while "Kimstughna" is
+    # the more traditional transliteration. Same alias as "Kimstughna" so
+    # either spelling is recognized (this is what caused the Oct 2026
+    # production validation failure: 'karana=...Kinstughna... does not match
+    # any known karana name').
+    "Kinstughna": "కింస్తుఘ్న",
 }
 KARANA_TA = {
     "Bava": "பவம்", "Balava": "பாலவம்", "Kaulava": "கௌலவம்", "Taitila": "தைதிலம்",
     "Garaja": "கரஜம்", "Vanija": "வணிஜம்", "Vishti": "பத்திரை", "Shakuni": "சகுனி",
     "Chatushpada": "சதுஷ்பாதம்", "Naga": "நாகவம்", "Nagava": "நாகவம்", "Kimstughna": "கிம்ஸ்துக்னம்",
+    "Kinstughna": "கிம்ஸ்துக்னம்",
 }
 
 # --------------------------------------------------------------------------
@@ -447,12 +455,15 @@ def fetch_panchang(date_str):
     # a chained value like "Chaturdashi upto 06:28 PM, then Amavasya" can
     # be split into many fragments ("Chaturdashi", "upto", "06:28", "PM",
     # "then", "Amavasya", each its own line). find_value() below handles
-    # the simple single-fragment case; find_chain_value() and
-    # find_window_value() below it handle the two ways a value can span
-    # multiple fragments, each with its own stopping rule so one field's
-    # leftover fragments can never bleed into the next field's value.
+    # the simple single-fragment case; find_window_value() below it handles
+    # ranges that can span multiple fragments, with its own stopping rule so
+    # one field's leftover fragments can never bleed into the next field's
+    # value. Tithi/Nakshatra/Yoga/Karana (the "chain" fields, which can
+    # transition to a second/third name partway through the day) are parsed
+    # separately via extract_chain_fields() below, which walks the actual
+    # table structure instead of this flat fragment stream - see its
+    # docstring for why.
     _BARE_CONTINUE_RE = re.compile(r'^(AM|PM|to|\d{1,2}:\d{2})$', re.IGNORECASE)
-    _CHAIN_CONTINUE_RE = re.compile(r'^(AM|PM|to|upto|then|\d{1,2}:\d{2})$', re.IGNORECASE)
     _RANGE_COMPLETE_RE = re.compile(
         r'\d{1,2}:\d{2}\s*(AM|PM)\s*to\s*\d{1,2}:\d{2}\s*(AM|PM)', re.IGNORECASE
     )
@@ -523,43 +534,77 @@ def fetch_panchang(date_str):
                 break
         return _join_frags(frags)
 
-    def find_chain_value(label, lookahead=6):
-        """For fields that name something and can optionally transition to
-        a second (or third) name partway through the day - Tithi,
-        Nakshatra, Yoga, Karana - rendered as e.g. "Chaturdashi", "upto",
-        "06:28", "PM", "then", "Amavasya" each on their own line. Glues
-        together the name plus any "upto TIME, then NAME" continuations;
-        stops at the first line that doesn't fit that grammar (the next
-        field's label)."""
-        j = _first_fragment(label, lookahead)
-        if j is None:
-            return None
-        frags = [region[j]]
-        k = j + 1
-        while k < len(region) and (k - j) < 30:
-            cand = region[k]
-            if not cand:
-                k += 1
-                continue
-            if _CHAIN_CONTINUE_RE.match(cand):
-                frags.append(cand)
-                k += 1
-                continue
-            # A bare word immediately after "then" is the next segment's
-            # name (e.g. "...then", "Amavasya") - anything else means we've
-            # hit unrelated content (the next field's label) and should stop.
-            if frags[-1].lower() == "then" and re.match(r'^[A-Za-z ]+$', cand):
-                frags.append(cand)
-                k += 1
-                continue
-            break
-        return _join_frags(frags)
+    def extract_chain_fields():
+        """Tithi, Nakshatra, Yoga and Karana can each transition to a second
+        (sometimes third) name partway through the day. Drik Panchang lays
+        these four fields out as a 2-column grid of "dpTableRow" divs - each
+        row holds a (key, value) cell pair for the left field and another
+        (key, value) pair for the right field - where a field's 2nd/3rd
+        segment is a LATER row with an EMPTY key cell in that same column
+        position, and a field that finishes early simply hands its column
+        slot to the next field's rows. Example real markup for 11/10/2026:
+            Row 1: Yoga | Vaidhriti upto 09:05 PM   | Karana | Kinstughna upto 09:21 AM
+            Row 2: ""   | Vishkambha                | ""     | Bava upto 09:30 PM
+            Row 3: Weekday | Raviwara               | ""     | Balava   <- Karana's
+                                                                           3rd segment,
+                                                                           while the
+                                                                           Yoga/Weekday
+                                                                           column has
+                                                                           already moved
+                                                                           on
+        A flat top-to-bottom text read (the old approach, find_chain_value)
+        has no way to tell "Balava" apart from the Weekday value next to it,
+        or that "Vishkambha"/"Dwitiya"/"Swati" belong to the row above - it
+        silently dropped every field's 2nd/3rd segment, and once (Kinstughna
+        above) that dropped segment was the ONLY one whose name was in our
+        vocab, which took down the whole run. Walking the actual table
+        structure instead tracks "which field is this column currently
+        continuing" per column, so multi-segment chains are captured in
+        full and correctly, matching Drik Panchang exactly.
+        """
+        chains = {"Tithi": [], "Nakshatra": [], "Yoga": [], "Karana": []}
+        wrapper = soup.find("div", class_="dpCorePanchangCardWrapper")
+        card = wrapper.find("div", class_="dpTableCard") if wrapper else None
+        if card is None:
+            return chains
+        current = {}
+        for row in card.find_all("div", class_="dpTableRow", recursive=False):
+            cells = row.find_all("div", class_="dpTableCell", recursive=False)
+            for col in range(0, len(cells) - 1, 2):
+                key_cell, val_cell = cells[col], cells[col + 1]
+                pair_idx = col // 2
+                key_text = key_cell.get_text(strip=True)
+                if key_text:
+                    # A non-empty key cell always starts a (possibly new)
+                    # field in this column; only track it further if it's
+                    # one of our four chain fields.
+                    current[pair_idx] = key_text if key_text in chains else None
+                field = current.get(pair_idx)
+                if field not in chains:
+                    continue
+                # Strip the info-icon popup (ⓘ and its hidden tooltip data)
+                # before reading the cell's visible text, so it never breaks
+                # up or pollutes the captured segment text.
+                val_copy = BeautifulSoup(str(val_cell), "html.parser")
+                for popup in val_copy.find_all("div", class_="dpElementInfoPopupWrapper"):
+                    popup.decompose()
+                text = re.sub(r'\s+', ' ', val_copy.get_text(" ", strip=True)).strip()
+                text = re.sub(r'\s+,', ',', text)  # "AM , Oct 21" -> "AM, Oct 21"
+                if text:
+                    chains[field].append(text)
+        return chains
+
+    chain_fields = extract_chain_fields()
+
+    def chain_value(label):
+        segs = chain_fields.get(label)
+        return ", then ".join(segs) if segs else None
 
     data = {}
-    data["tithi"] = find_chain_value("Tithi")
-    data["nakshatra"] = find_chain_value("Nakshatra")
-    data["yoga"] = find_chain_value("Yoga")
-    data["karana"] = find_chain_value("Karana")
+    data["tithi"] = chain_value("Tithi")
+    data["nakshatra"] = chain_value("Nakshatra")
+    data["yoga"] = chain_value("Yoga")
+    data["karana"] = chain_value("Karana")
     data["weekday"] = find_value("Weekday")
     data["paksha"] = find_value("Paksha")
     data["sunrise"] = find_value("Sunrise")
