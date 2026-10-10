@@ -280,6 +280,16 @@ def fmt_range_display(s):
         return s
     s = re.sub(r'\s+to\s+', ' \u2013 ', s, flags=re.IGNORECASE)
     s = re.sub(r',?\s*then\s+', ', ', s, flags=re.IGNORECASE)
+    # A window that both starts and ends after midnight (e.g. Varjyam
+    # "04:27 AM, Oct 12 - 06:08 AM, Oct 12") carries the same cross-day date
+    # tag on both ends verbatim from Drik Panchang - show it once, at the
+    # end, instead of repeating it on both sides of the dash.
+    s = re.sub(
+        r'(\d{1,2}:\d{2}\s*(?:AM|PM)),\s*([A-Za-z]+ \d{1,2})\s*\u2013\s*'
+        r'(\d{1,2}:\d{2}\s*(?:AM|PM)),\s*\2\b',
+        lambda m: f"{m.group(1)} \u2013 {m.group(3)}, {m.group(2)}",
+        s,
+    )
     return s
 
 
@@ -450,89 +460,86 @@ def fetch_panchang(date_str):
         end_idx = len(lines)
     region = lines[start_idx:end_idx]
 
-    # Drik Panchang sometimes renders a time and its AM/PM marker as two
-    # separate text nodes (e.g. "05:52" then "AM" on their own lines), and
-    # a chained value like "Chaturdashi upto 06:28 PM, then Amavasya" can
-    # be split into many fragments ("Chaturdashi", "upto", "06:28", "PM",
-    # "then", "Amavasya", each its own line). find_value() below handles
-    # the simple single-fragment case; find_window_value() below it handles
-    # ranges that can span multiple fragments, with its own stopping rule so
-    # one field's leftover fragments can never bleed into the next field's
-    # value. Tithi/Nakshatra/Yoga/Karana (the "chain" fields, which can
-    # transition to a second/third name partway through the day) are parsed
-    # separately via extract_chain_fields() below, which walks the actual
-    # table structure instead of this flat fragment stream - see its
-    # docstring for why.
-    _BARE_CONTINUE_RE = re.compile(r'^(AM|PM|to|\d{1,2}:\d{2})$', re.IGNORECASE)
-    _RANGE_COMPLETE_RE = re.compile(
-        r'\d{1,2}:\d{2}\s*(AM|PM)\s*to\s*\d{1,2}:\d{2}\s*(AM|PM)', re.IGNORECASE
+    # find_value() and find_window_value() below (and extract_chain_fields()
+    # above them) all read straight from the actual HTML table structure
+    # rather than a flattened, top-to-bottom text stream. An earlier version
+    # of this file tried to re-glue a flat text stream back into field
+    # values with regex "continuation" rules, and that broke in two
+    # different ways once actually tested against live pages: (1) a bare
+    # info-icon glyph ("ⓘ") sitting mid-value broke the gluing early (the
+    # Karana/Kinstughna production crash - see extract_chain_fields()'s
+    # docstring); (2) a cross-midnight value like "04:27 AM, Oct 12 to
+    # 06:08 AM, Oct 12" (real Varjyam markup) has a bare "," in it that the
+    # old continuation regex didn't recognize, so it silently truncated the
+    # value to just "04:27 AM" - dropping the entire "to ... Oct 12" end of
+    # the range. Reading the dpTableKey/dpTableValue cell pair directly
+    # sidesteps both: whatever text is actually in the value cell (commas,
+    # date tags, info-icon or not) comes back whole, in one step, with no
+    # guessing about where one field's text ends and the next begins.
+    #
+    # These fields all live inside one of a handful of known "card" wrapper
+    # divs (dpSunriseMoonriseCardWrapper, dpCorePanchangCardWrapper,
+    # dpAuspiciousCardWrapper, dpInauspiciousCardWrapper,
+    # dpLunarDateCardWrapper, dpAyanaRituCardWrapper) - restricting the
+    # search to just these (rather than the whole page) avoids an unrelated
+    # dpTableKey elsewhere on the page (there are several other "card"
+    # widgets further down, e.g. Tamil Yoga, Rashi/Nakshatra, Panchaka)
+    # that might happen to reuse the same label text for something else.
+    _RELEVANT_WRAPPER_CLASSES = (
+        "dpSunriseMoonriseCardWrapper", "dpCorePanchangCardWrapper",
+        "dpAuspiciousCardWrapper", "dpInauspiciousCardWrapper",
+        "dpLunarDateCardWrapper", "dpAyanaRituCardWrapper",
     )
 
-    def _join_frags(frags):
-        """Join fragments with a comma before "then" for readability
-        ("upto 06:28 PM, then Amavasya" instead of a run-on sentence)."""
-        out = frags[0]
-        for f in frags[1:]:
-            if f.lower() == "then":
-                out += ","
-            out += " " + f
-        return re.sub(r'\s+', ' ', out).strip()
-
-    def _first_fragment(label, lookahead):
-        """Locate `label` in the bounded region and return the index of the
-        next real (non-empty, non-icon, non-label-repeat) line after it, or
-        None if not found."""
-        for i, l in enumerate(region):
-            if l == label:
-                for j in range(i + 1, min(i + 1 + lookahead, len(region))):
-                    cand = region[j]
-                    if cand and cand != label and not cand.startswith("ⓘ"):
-                        return j
+    def _dp_value_cell(label):
+        """Find the dpTableKey cell (inside one of the wrappers above) whose
+        visible text is exactly `label`, and return its paired
+        dpTableValue cell (the very next sibling cell in the same row)."""
+        for wrapper_cls in _RELEVANT_WRAPPER_CLASSES:
+            wrapper = soup.find("div", class_=wrapper_cls)
+            if wrapper is None:
+                continue
+            for key_cell in wrapper.find_all("div", class_="dpTableKey"):
+                if key_cell.get_text(strip=True) == label:
+                    val_cell = key_cell.find_next_sibling("div", class_="dpTableValue")
+                    if val_cell is not None:
+                        return val_cell
         return None
 
+    def _clean_cell_text(val_cell):
+        """Visible text of a dpTableValue cell, with the info-icon popup
+        (ⓘ and its hidden tooltip data) stripped out first so it never
+        pollutes the result, whitespace collapsed, and the stray space a
+        split-up ", Oct 12" date tag leaves before its comma tidied up."""
+        val_copy = BeautifulSoup(str(val_cell), "html.parser")
+        for popup in val_copy.find_all("div", class_="dpElementInfoPopupWrapper"):
+            popup.decompose()
+        text = re.sub(r'\s+', ' ', val_copy.get_text(" ", strip=True)).strip()
+        text = re.sub(r'\s+,', ',', text)
+        return text or None
+
     def find_value(label, lookahead=6):
-        """Simple lookup for fields that are always a single fragment or a
-        single AM/PM-glued time (Weekday, Paksha, Sunrise/Sunset/Moonrise/
-        Moonset, and the best-effort year-info fields)."""
-        j = _first_fragment(label, lookahead)
-        if j is None:
+        """Simple lookup for fields that are always a single value (Weekday,
+        Paksha, Sunrise/Sunset/Moonrise/Moonset, and the best-effort
+        year-info fields). `lookahead` is unused now - kept so existing call
+        sites don't need to change - value cells are read directly from the
+        HTML table rather than scanned for within N lines of text."""
+        val_cell = _dp_value_cell(label)
+        if val_cell is None:
             return None
-        frags = [region[j]]
-        k = j + 1
-        while k < len(region) and k < j + 8 and _BARE_CONTINUE_RE.match(region[k] or ""):
-            frags.append(region[k])
-            k += 1
-        return re.sub(r'\s+', ' ', " ".join(frags)).strip()
+        return _clean_cell_text(val_cell)
 
     def find_window_value(label, max_windows=1, lookahead=6):
         """For time-range fields (Rahu Kalam, Yamaganda, Gulikai Kalam,
-        Brahma Muhurta, Abhijit, Amrit Kalam, Dur Muhurtam, Varjyam). Stops
-        as soon as `max_windows` complete "H:MM AM/PM to H:MM AM/PM" ranges
-        have been formed, so it can never keep gluing on fragments that
-        actually belong to the NEXT field (the bug that produced a garbled
-        "01:55 PM to 03:31 PM 03:18 PM to" Gulikai Kalam value in
-        production). max_windows=1 for fields that are always a single
-        window; =2 for Dur Muhurtam/Varjyam, which can have two."""
-        j = _first_fragment(label, lookahead)
-        if j is None:
+        Brahma Muhurta, Abhijit, Amrit Kalam, Dur Muhurtam, Varjyam). The
+        whole value cell's text is returned as-is - whether it holds one
+        window ("04:26 AM to 05:14 AM") or, on days Dur Muhurtam/Varjyam
+        have two, both of them together - so `max_windows` is unused now
+        (kept so existing call sites don't need to change)."""
+        val_cell = _dp_value_cell(label)
+        if val_cell is None:
             return None
-        frags = [region[j]]
-        k = j + 1
-        windows_seen = 0
-        while k < len(region) and (k - j) < 20:
-            cand = region[k]
-            if not cand:
-                k += 1
-                continue
-            if not _BARE_CONTINUE_RE.match(cand) and cand.lower() != "then":
-                break
-            frags.append(cand)
-            k += 1
-            joined = re.sub(r'\s+', ' ', " ".join(frags))
-            windows_seen = len(_RANGE_COMPLETE_RE.findall(joined))
-            if windows_seen >= max_windows and cand.lower() != "then":
-                break
-        return _join_frags(frags)
+        return _clean_cell_text(val_cell)
 
     def extract_chain_fields():
         """Tithi, Nakshatra, Yoga and Karana can each transition to a second
