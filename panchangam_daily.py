@@ -739,7 +739,7 @@ def validate_data(data):
         problems.append(f"weekday_full='{data.get('weekday_full')}' is not a recognized weekday")
 
     time_fields = ["sunrise", "sunset", "moonrise", "moonset", "brahma_muhurta",
-                   "rahu_kalam", "yamaganda", "gulikai_kalam", "durmuhurtam", "varjyam"]
+                   "rahu_kalam", "yamaganda", "gulikai_kalam"]
     for field in time_fields:
         val = data.get(field)
         if not val:
@@ -747,14 +747,16 @@ def validate_data(data):
         elif not TIME_RE.search(val):
             problems.append(f"{field}='{val}' does not look like a valid time")
 
-    # Abhijit Muhurta and Amrit Kalam are genuinely absent from the source
-    # page on some days (Abhijit doesn't occur on certain weekdays; Amrit
-    # Kalam depends on the Moon's position and some days it simply doesn't
-    # fall during a usable window) - that's real panchang behavior, not a
+    # Abhijit Muhurta, Amrit Kalam, Varjyam and Dur Muhurtam are genuinely
+    # absent from the source page on some days (Abhijit doesn't occur on
+    # certain weekdays; Amrit Kalam and Varjyam depend on the Moon's
+    # nakshatra position and some days the row simply isn't on Drik's page
+    # at all - this is what produced the Oct 13 2026 "varjyam is missing"
+    # failure) - that's real panchang behavior, not a
     # scraping failure, so a missing value here should not block sending
     # the rest of the day's card. Only flag it if something WAS scraped but
     # doesn't look like a time (that would be an actual parsing bug).
-    for field in ("abhijit", "amrit_kalam"):
+    for field in ("abhijit", "amrit_kalam", "varjyam", "durmuhurtam"):
         val = data.get(field)
         if val and val.lower() != "none" and not TIME_RE.search(val):
             problems.append(f"{field}='{val}' does not look like a valid time")
@@ -1231,6 +1233,8 @@ def build_images(data, dt_ist):
 
         abhijit_val = data["abhijit"] if data["abhijit"] and data["abhijit"].lower() != "none" else L["none_today"]
         amrit_val = data["amrit_kalam"] if data["amrit_kalam"] and data["amrit_kalam"].lower() != "none" else L["none_today"]
+        varjyam_val = data["varjyam"] if data["varjyam"] and data["varjyam"].lower() != "none" else L["none_today"]
+        durmuhurtam_val = data["durmuhurtam"] if data["durmuhurtam"] and data["durmuhurtam"].lower() != "none" else L["none_today"]
 
         def _na_if_absent(val):
             # Some days genuinely have no moonrise/moonset within the
@@ -1276,8 +1280,8 @@ def build_images(data, dt_ist):
                     (L["rahu"], fmt_range_display(data["rahu_kalam"]) or "-"),
                     (L["gulika"], fmt_range_display(data["gulikai_kalam"]) or "-"),
                     (L["yama"], fmt_range_display(data["yamaganda"]) or "-"),
-                    (L["durmuhurtam"], fmt_range_display(data["durmuhurtam"]) or "-"),
-                    (L["varjyam"], fmt_range_display(data["varjyam"]) or "-"),
+                    (L["durmuhurtam"], fmt_range_display(durmuhurtam_val)),
+                    (L["varjyam"], fmt_range_display(varjyam_val)),
                 ]},
                 {"pill": L["auspicious"], "pill_color": AUSPICIOUS_PILL_COL, "rows": [
                     (L["brahma"], fmt_range_display(data["brahma_muhurta"]) or "-"),
