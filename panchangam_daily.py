@@ -774,7 +774,8 @@ def _measure_column(draw, lang, groups, col_w, font_scale, scale):
         "val": font_for(lang, "reg", row_size),
     }
     row_line_h = row_size + line_gap
-    ex = {"px": px, "bullet_w": bullet_w, "row_size": row_size}
+    item_gap = max(int(row_size * 0.5), 6)   # extra space between separate items in a box
+    ex = {"px": px, "bullet_w": bullet_w, "row_size": row_size, "item_gap": item_gap}
 
     geoms = []
     total_h = 0
@@ -788,7 +789,8 @@ def _measure_column(draw, lang, groups, col_w, font_scale, scale):
             wrapped = _wrap_lines(draw, text, fonts["row"], inner_w)
             g["row_lines"].append(wrapped)
             n_lines += len(wrapped)
-        gh = ((header_size + 2 * pad) if g["header"] else 0) + 2 * pad + n_lines * row_line_h
+        gh = (((header_size + 2 * pad) if g["header"] else 0) + 2 * pad + n_lines * row_line_h
+              + max(len(grp["rows"]) - 1, 0) * item_gap)
         geoms.append(g)
         total_h += gh
         if gi < len(groups) - 1:
@@ -1044,6 +1046,20 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
             break
         font_scale -= 0.02
 
+    # Step the text down ~12% from the largest size that fit, and use the
+    # room that frees up as extra space between the items inside each box.
+    # (Keep shrinking only if the added spacing makes it not fit.)
+    font_scale = max(font_scale * 0.88, 0.22)
+    while True:
+        left_h, left_geoms, fonts, header_size, row_line_h, pad, group_gap, ex = _measure_column(
+            d, lang, left_groups, col_w, font_scale, scale)
+        right_h, right_geoms = _measure_column(
+            d, lang, right_groups, col_w, font_scale, scale)[:2]
+        total_h = max(left_h, right_h)
+        if total_h <= available or font_scale <= 0.22:
+            break
+        font_scale -= 0.02
+
     # Hard safety valve: even at the smallest readable font, an extreme day
     # (many long chained transitions on both sides at once) could in theory
     # still not fit. Rather than let that overflow into the temple's footer
@@ -1054,6 +1070,7 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
         row_line_h = max(int(row_line_h * squeeze), 1)
         group_gap = max(group_gap * squeeze, 1)
         pad = max(int(pad * squeeze), 1)
+        ex["item_gap"] = max(int(ex["item_gap"] * squeeze), 1)
         total_h = available
 
     # Spare vertical room becomes breathing space: a little more under the
@@ -1071,6 +1088,7 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
     row_size = ex["row_size"]
     px_in = ex["px"]
     bullet_w = ex["bullet_w"]
+    item_gap = ex["item_gap"]
 
     def _draw_column(x0, groups, geoms):
         y = y0
@@ -1079,7 +1097,8 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
             col = geom["bar"] or body_col
             n_lines = sum(len(w) for w in geom["row_lines"])
             bar_h = (header_size + 2 * pad) if geom["header"] else 0
-            box_h = bar_h + 2 * pad + n_lines * row_line_h
+            box_h = (bar_h + 2 * pad + n_lines * row_line_h
+                     + max(len(geom["row_lines"]) - 1, 0) * item_gap)
             d.rounded_rectangle([x0, y, x0 + col_w, y + box_h], radius=radius,
                                 outline=col, width=border_w, fill=(255, 255, 255))
             if geom["header"]:
@@ -1110,6 +1129,7 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
                         f = fonts["val"] if geom["kv"] else fonts["row"]
                         d.text((text_x, yy), line, font=f, fill=TEXT_COL)
                     yy += row_line_h
+                yy += item_gap
             y += box_h
             if gi < n - 1:
                 y += group_gap
