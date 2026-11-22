@@ -718,10 +718,15 @@ def _wrap_lines(draw, text, font, max_width):
     """Word-wrap text to fit max_width, measured with the real font via
     textbbox (a pure measurement call - it doesn't draw anything)."""
     text = text or "-"
+    # Keep a time range ("04:35 AM to 05:25 AM") together as one unit so it
+    # moves to the next line whole instead of breaking mid-range.
+    text = re.sub(r'(\d{1,2}:\d{2} [AP]M) to (\d{1,2}:\d{2} [AP]M)',
+                  lambda m: m.group(0).replace(" ", "\x00"), text)
     words = text.split(" ")
     lines = []
     cur = ""
     for w in words:
+        w = w.replace("\x00", " ")
         trial = (cur + " " + w).strip()
         bbox = draw.textbbox((0, 0), trial, font=font)
         if bbox[2] - bbox[0] <= max_width or not cur:
@@ -836,12 +841,11 @@ def _measure_column_legacy(draw, lang, groups, col_w, font_scale, scale):
 PALETTES = [
     ((103, 45, 145), (255, 255, 0), (255, 255, 255), (103, 45, 145)),    # original purple
     ((14, 45, 100), (255, 214, 10), (255, 255, 255), (14, 45, 100)),     # navy + gold
-    ((0, 92, 92), (255, 235, 90), (255, 255, 255), (0, 92, 92)),         # teal + lemon
-    ((22, 84, 46), (255, 223, 70), (255, 255, 255), (22, 84, 46)),       # forest + gold
     ((25, 55, 130), (255, 200, 40), (235, 244, 255), (25, 55, 130)),     # royal blue + amber
     ((60, 40, 140), (255, 224, 102), (255, 255, 255), (60, 40, 140)),    # indigo + gold
-    ((0, 105, 130), (255, 238, 120), (255, 255, 255), (0, 105, 130)),    # ocean + lemon
-    ((30, 70, 70), (255, 200, 87), (255, 255, 255), (30, 70, 70)),       # slate green + amber
+    ((120, 40, 110), (255, 226, 120), (255, 255, 255), (120, 40, 110)),  # plum + gold
+    ((28, 78, 140), (255, 236, 130), (255, 255, 255), (28, 78, 140)),    # steel blue + lemon
+    ((70, 50, 120), (255, 205, 90), (250, 245, 255), (70, 50, 120)),     # violet + amber
     ((255, 232, 150), (20, 45, 120), (10, 80, 50), (20, 45, 120)),       # butter + navy / green
     ((190, 225, 245), (10, 50, 120), (20, 60, 70), (10, 50, 120)),       # sky + navy / teal
 ]
@@ -993,7 +997,7 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
     top = geo["hdr"]
     # Small safety margin above the footer band (measured from the actual
     # template pixels), so content never touches the temple's footer banner.
-    bottom = geo["top"] - int(H * 0.012)
+    bottom = geo["top"] - int(H * 0.03)
     left = int(W * LEFT_FRAC)
     right = int(W * RIGHT_FRAC)
     content_w = right - left
@@ -1029,7 +1033,7 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
     # amounts of content, so this sizes everything to whichever column is
     # taller - the shorter column just ends higher up, which is normal for
     # a two-column layout like this.
-    font_scale = 0.9   # capped: no longer grows to fill every spare pixel
+    font_scale = 1.45  # upper cap; shrinks until it fits with generous spacing
     while True:
         left_h, left_geoms, fonts, header_size, row_line_h, pad, group_gap, ex = _measure_column(
             d, lang, left_groups, col_w, font_scale, scale)
@@ -1287,7 +1291,7 @@ def build_images(data, dt_ist):
                 f"{L['durmuhurtam']}: {data['durmuhurtam'] or '-'}",
                 f"{L['varjyam']}: {data['varjyam'] or '-'}",
             ]},
-            {"header": L["auspicious"], "kv": True, "bar": (38, 110, 72), "rows": [
+            {"header": L["auspicious"], "kv": True, "bar": (170, 105, 10), "rows": [
                 f"{L['brahma']}: {data['brahma_muhurta'] or '-'}",
                 f"{L['abhijit']}: {abhijit_val}",
                 f"{L['amrit']}: {amrit_val}",
