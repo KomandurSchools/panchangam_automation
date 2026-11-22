@@ -62,31 +62,25 @@ FONT_DIR = os.path.join(HERE, "fonts")
 # change, only which entry is "today's" value changes day to day)
 # --------------------------------------------------------------------------
 
-# Rahu Kalam / Yamagandam - a FIXED table of nominal clock times (the day
-# treated as a flat 6:00 AM-6:00 PM, divided into eight 90-minute blocks),
-# the same time every week on a given weekday regardless of the actual
-# date's sunrise/sunset. The user confirmed with several reference
-# examples spanning different weekdays and dates (Sep 13/14/15, 2026 -
-# Sun/Mon/Tue) that this FIXED weekly table is what's wanted for these
-# two fields specifically: verified each one matches this table exactly
-# (e.g. every Monday: Rahu 7:30-9:00 AM, Yamaganda 10:30 AM-12:00 PM,
-# regardless of the specific date). This is intentionally different from
-# what Drik Panchang's own site shows for these two fields - Drik's
-# numbers shift with each day's actual sunrise/sunset, this table doesn't.
-# Gulika Kalam is deliberately NOT in this table (removed on request) -
-# it uses the scraped Drik Panchang value directly, same as every other
-# field on the card, since the user wants everything except Rahu Kalam
-# and Yamagandam to match Drik exactly.
+# Rahu Kalam / Yamagandam / Gulika Kalam - the standard fixed per-weekday
+# table (the daylight period divided into eight ~90-minute segments,
+# assigned to weekdays in a fixed rotation). This is what most familiar
+# calendar apps show, including the user's trusted reference app - which
+# was confirmed side-by-side to match this table exactly (Tuesday: Rahu
+# Kalam 3:00-4:30 PM, Yamagandam 9:00-10:30 AM), and is DIFFERENT from Drik
+# Panchang's own sunrise-adjusted numbers for these three fields
+# specifically. Computing these ourselves instead of scraping them also
+# removes a layer of parsing risk for three of the most safety-relevant
+# fields on the card.
 FIXED_KALAM_TABLE = {
-    "Sunday":    {"rahu": ("04:30 PM", "06:00 PM"), "yama": ("12:00 PM", "01:30 PM")},
-    "Monday":    {"rahu": ("07:30 AM", "09:00 AM"), "yama": ("10:30 AM", "12:00 PM")},
-    "Tuesday":   {"rahu": ("03:00 PM", "04:30 PM"), "yama": ("09:00 AM", "10:30 AM")},
-    "Wednesday": {"rahu": ("12:00 PM", "01:30 PM"), "yama": ("07:30 AM", "09:00 AM")},
-    "Thursday":  {"rahu": ("01:30 PM", "03:00 PM"), "yama": ("06:00 AM", "07:30 AM")},
-    "Friday":    {"rahu": ("10:30 AM", "12:00 PM"), "yama": ("03:00 PM", "04:30 PM")},
-    "Saturday":  {"rahu": ("09:00 AM", "10:30 AM"), "yama": ("01:30 PM", "03:00 PM")},
+    "Sunday":    {"rahu": ("04:30 PM", "06:00 PM"), "yama": ("12:00 PM", "01:30 PM"), "gulika": ("03:00 PM", "04:30 PM")},
+    "Monday":    {"rahu": ("07:30 AM", "09:00 AM"), "yama": ("10:30 AM", "12:00 PM"), "gulika": ("09:00 AM", "10:30 AM")},
+    "Tuesday":   {"rahu": ("03:00 PM", "04:30 PM"), "yama": ("09:00 AM", "10:30 AM"), "gulika": ("12:00 PM", "01:30 PM")},
+    "Wednesday": {"rahu": ("12:00 PM", "01:30 PM"), "yama": ("07:30 AM", "09:00 AM"), "gulika": ("10:30 AM", "12:00 PM")},
+    "Thursday":  {"rahu": ("01:30 PM", "03:00 PM"), "yama": ("06:00 AM", "07:30 AM"), "gulika": ("09:00 AM", "10:30 AM")},
+    "Friday":    {"rahu": ("10:30 AM", "12:00 PM"), "yama": ("03:00 PM", "04:30 PM"), "gulika": ("07:30 AM", "09:00 AM")},
+    "Saturday":  {"rahu": ("09:00 AM", "10:30 AM"), "yama": ("01:30 PM", "03:00 PM"), "gulika": ("06:00 AM", "07:30 AM")},
 }
-
 
 WEEKDAY_TE = {
     "Sunday": "ఆదివారం", "Monday": "సోమవారం", "Tuesday": "మంగళవారం",
@@ -118,9 +112,8 @@ NAKSHATRA_TE = {
     "Ashwini": "అశ్విని", "Bharani": "భరణి", "Krittika": "కృత్తిక", "Rohini": "రోహిణి",
     "Mrigashira": "మృగశిర", "Ardra": "ఆరుద్ర", "Punarvasu": "పునర్వసు", "Pushya": "పుష్యమి",
     "Ashlesha": "ఆశ్లేష", "Magha": "మఖ", "Purva Phalguni": "పుబ్బ", "Uttara Phalguni": "ఉత్తర",
-    "Hasta": "హస్త", "Chitra": "చిత్త", "Swati": "స్వాతి", "Vishakha": "విశాఖ", "Vishaka": "విశాఖ",
-    "Anuradha": "అనూరాధ", "Jyeshtha": "జ్యేష్ఠ", "Jyeshta": "జ్యేష్ఠ",
-    "Mula": "మూల", "Moola": "మూల", "Purva Ashadha": "పూర్వాషాఢ",
+    "Hasta": "హస్త", "Chitra": "చిత్త", "Swati": "స్వాతి", "Vishakha": "విశాఖ",
+    "Anuradha": "అనూరాధ", "Jyeshtha": "జ్యేష్ఠ", "Mula": "మూల", "Purva Ashadha": "పూర్వాషాఢ",
     "Uttara Ashadha": "ఉత్తరాషాఢ", "Shravana": "శ్రవణం", "Dhanishtha": "ధనిష్ఠ",
     "Shatabhisha": "శతభిషం", "Purva Bhadrapada": "పూర్వాభాద్ర", "Uttara Bhadrapada": "ఉత్తరాభాద్ర",
     "Revati": "రేవతి",
@@ -129,16 +122,15 @@ NAKSHATRA_TA = {
     "Ashwini": "அஸ்வினி", "Bharani": "பரணி", "Krittika": "கார்த்திகை", "Rohini": "ரோகிணி",
     "Mrigashira": "மிருகசீரிடம்", "Ardra": "திருவாதிரை", "Punarvasu": "புனர்பூசம்", "Pushya": "பூசம்",
     "Ashlesha": "ஆயில்யம்", "Magha": "மகம்", "Purva Phalguni": "பூரம்", "Uttara Phalguni": "உத்திரம்",
-    "Hasta": "அஸ்தம்", "Chitra": "சித்திரை", "Swati": "சுவாதி", "Vishakha": "விசாகம்", "Vishaka": "விசாகம்",
-    "Anuradha": "அனுஷம்", "Jyeshtha": "கேட்டை", "Jyeshta": "கேட்டை",
-    "Mula": "மூலம்", "Moola": "மூலம்", "Purva Ashadha": "பூராடம்",
+    "Hasta": "அஸ்தம்", "Chitra": "சித்திரை", "Swati": "சுவாதி", "Vishakha": "விசாகம்",
+    "Anuradha": "அனுஷம்", "Jyeshtha": "கேட்டை", "Mula": "மூலம்", "Purva Ashadha": "பூராடம்",
     "Uttara Ashadha": "உத்திராடம்", "Shravana": "திருவோணம்", "Dhanishtha": "அவிட்டம்",
     "Shatabhisha": "சதயம்", "Purva Bhadrapada": "பூரட்டாதி", "Uttara Bhadrapada": "உத்திரட்டாதி",
     "Revati": "ரேவதி",
 }
 
 YOGA_TE = {
-    "Vishkambha": "విష్కంభ", "Priti": "ప్రీతి", "Ayushman": "ఆయుష్మాన్", "Ayushmana": "ఆయుష్మాన్", "Saubhagya": "సౌభాగ్య",
+    "Vishkambha": "విష్కంభ", "Priti": "ప్రీతి", "Ayushman": "ఆయుష్మాన్", "Saubhagya": "సౌభాగ్య",
     "Shobhana": "శోభన", "Atiganda": "అతిగండ", "Sukarma": "సుకర్మ", "Dhriti": "ధృతి",
     "Shula": "శూల", "Ganda": "గండ", "Vriddhi": "వృద్ధి", "Dhruva": "ధ్రువ",
     "Vyaghata": "వ్యాఘాత", "Harshana": "హర్షణ", "Vajra": "వజ్ర", "Siddhi": "సిద్ధి",
@@ -147,7 +139,7 @@ YOGA_TE = {
     "Brahma": "బ్రహ్మ", "Indra": "ఇంద్ర", "Vaidhriti": "వైధృతి",
 }
 YOGA_TA = {
-    "Vishkambha": "விஷ்கம்பம்", "Priti": "பிரீதி", "Ayushman": "ஆயுஷ்மான்", "Ayushmana": "ஆயுஷ்மான்", "Saubhagya": "சௌபாக்கியம்",
+    "Vishkambha": "விஷ்கம்பம்", "Priti": "பிரீதி", "Ayushman": "ஆயுஷ்மான்", "Saubhagya": "சௌபாக்கியம்",
     "Shobhana": "சோபனம்", "Atiganda": "அதிகண்டம்", "Sukarma": "சுகர்மா", "Dhriti": "திருதி",
     "Shula": "சூலம்", "Ganda": "கண்டம்", "Vriddhi": "விருத்தி", "Dhruva": "துருவம்",
     "Vyaghata": "வியாகாதம்", "Harshana": "ஹர்ஷணம்", "Vajra": "வஜ்ரம்", "Siddhi": "சித்தி",
@@ -160,19 +152,11 @@ KARANA_TE = {
     "Bava": "బవ", "Balava": "బాలవ", "Kaulava": "కౌలవ", "Taitila": "తైతిల",
     "Garaja": "గరజ", "Vanija": "వణిజ", "Vishti": "భద్ర", "Shakuni": "శకుని",
     "Chatushpada": "చతుష్పాద", "Naga": "నాగ", "Nagava": "నాగ", "Kimstughna": "కింస్తుఘ్న",
-    # Drik Panchang's own rendered spelling for this karana is "Kinstughna"
-    # (n, not m) - confirmed live on drikpanchang.com - while "Kimstughna" is
-    # the more traditional transliteration. Same alias as "Kimstughna" so
-    # either spelling is recognized (this is what caused the Oct 2026
-    # production validation failure: 'karana=...Kinstughna... does not match
-    # any known karana name').
-    "Kinstughna": "కింస్తుఘ్న",
 }
 KARANA_TA = {
     "Bava": "பவம்", "Balava": "பாலவம்", "Kaulava": "கௌலவம்", "Taitila": "தைதிலம்",
     "Garaja": "கரஜம்", "Vanija": "வணிஜம்", "Vishti": "பத்திரை", "Shakuni": "சகுனி",
     "Chatushpada": "சதுஷ்பாதம்", "Naga": "நாகவம்", "Nagava": "நாகவம்", "Kimstughna": "கிம்ஸ்துக்னம்",
-    "Kinstughna": "கிம்ஸ்துக்னம்",
 }
 
 # --------------------------------------------------------------------------
@@ -186,13 +170,13 @@ KARANA_TA = {
 
 MASA_TE = {
     "Chaitra": "చైత్ర", "Vaishakha": "వైశాఖ", "Jyeshtha": "జ్యేష్ఠ", "Ashadha": "ఆషాఢ",
-    "Shravana": "శ్రావణ", "Sravana": "శ్రావణ", "Bhadrapada": "భాద్రపద", "Ashwin": "ఆశ్వయుజ", "Ashwina": "ఆశ్వయుజ",
+    "Shravana": "శ్రావణ", "Bhadrapada": "భాద్రపద", "Ashwin": "ఆశ్వయుజ", "Ashwina": "ఆశ్వయుజ",
     "Kartika": "కార్తీక", "Margashirsha": "మార్గశిర", "Margashira": "మార్గశిర",
     "Pausha": "పుష్య", "Magha": "మాఘ", "Phalguna": "ఫాల్గుణ",
 }
 MASA_TA = {
     "Chaitra": "சைத்திர", "Vaishakha": "வைசாக", "Jyeshtha": "ஜேஷ்ட", "Ashadha": "ஆஷாட",
-    "Shravana": "ஸ்ராவண", "Sravana": "ஸ்ராவண", "Bhadrapada": "பாத்ரபத", "Ashwin": "ஆஸ்வயுஜ", "Ashwina": "ஆஸ்வயுஜ",
+    "Shravana": "ஸ்ராவண", "Bhadrapada": "பாத்ரபத", "Ashwin": "ஆஸ்வயுஜ", "Ashwina": "ஆஸ்வயுஜ",
     "Kartika": "கார்த்திக", "Margashirsha": "மார்கசீர்ஷ", "Margashira": "மார்கசீர்ஷ",
     "Pausha": "புஷ்ய", "Magha": "மாக", "Phalguna": "பால்குன",
 }
@@ -225,7 +209,7 @@ SAMVATSARA_TE = {
     "Vikriti": "వికృతి", "Khara": "ఖర", "Nandana": "నందన", "Vijaya": "విజయ", "Jaya": "జయ",
     "Manmatha": "మన్మథ", "Durmukhi": "దుర్ముఖి", "Hevilambi": "హేవిళంబి", "Vilambi": "విళంబి",
     "Vikari": "వికారి", "Sharvari": "శార్వరి", "Plava": "ప్లవ", "Shubhakrit": "శుభకృత్",
-    "Shobhakrit": "శోభకృత్", "Krodhi": "క్రోధి", "Vishvavasu": "విశ్వావసు", "Parabhava": "పరాభవ", "Paraabhava": "పరాభవ",
+    "Shobhakrit": "శోభకృత్", "Krodhi": "క్రోధి", "Vishvavasu": "విశ్వావసు", "Parabhava": "పరాభవ",
     "Plavanga": "ప్లవంగ", "Kilaka": "కీలక", "Saumya": "సౌమ్య", "Sadharana": "సాధారణ",
     "Virodhikrit": "విరోధికృత్", "Paridhavi": "పరీధావి", "Pramadi": "ప్రమాది", "Pramadicha": "ప్రమాది",
     "Ananda": "ఆనంద", "Rakshasa": "రాక్షస", "Nala": "నల", "Anala": "నల", "Pingala": "పింగళ",
@@ -243,7 +227,7 @@ SAMVATSARA_TA = {
     "Vikriti": "விக்ருதி", "Khara": "கர", "Nandana": "நந்தன", "Vijaya": "விஜய", "Jaya": "ஜய",
     "Manmatha": "மன்மத", "Durmukhi": "துன்முகி", "Hevilambi": "ஹேவிளம்பி", "Vilambi": "விளம்பி",
     "Vikari": "விகாரி", "Sharvari": "சார்வரி", "Plava": "பிலவ", "Shubhakrit": "சுபகிருது",
-    "Shobhakrit": "சோபகிருது", "Krodhi": "குரோதி", "Vishvavasu": "விசுவாசு", "Parabhava": "பராபவ", "Paraabhava": "பராபவ",
+    "Shobhakrit": "சோபகிருது", "Krodhi": "குரோதி", "Vishvavasu": "விசுவாசு", "Parabhava": "பராபவ",
     "Plavanga": "பிலவங்க", "Kilaka": "கீலக", "Saumya": "சௌமிய", "Sadharana": "சாதாரண",
     "Virodhikrit": "விரோதிகிருது", "Paridhavi": "பரிதாபி", "Pramadi": "பிரமாதீச", "Pramadicha": "பிரமாதீச",
     "Ananda": "ஆனந்த", "Rakshasa": "ராட்சச", "Nala": "நள", "Anala": "நள", "Pingala": "பிங்கள",
@@ -270,65 +254,19 @@ def apply_en_overrides(text):
         text = re.sub(r'\b' + re.escape(raw) + r'\b', preferred, text)
     return text
 
-
-def fmt_range_display(s):
-    """'12:39 PM to 01:28 PM, then 03:07 PM to 03:57 PM' -> '12:39 PM –
-    01:28 PM, 03:07 PM – 03:57 PM' - the compact en-dash notation the
-    reference layout uses, which also reads correctly in the Telugu/Tamil
-    cards (unlike the bare English words 'to'/'then' this replaces)."""
-    if not s:
-        return s
-    s = re.sub(r'\s+to\s+', ' \u2013 ', s, flags=re.IGNORECASE)
-    s = re.sub(r',?\s*then\s+', ', ', s, flags=re.IGNORECASE)
-    # A window that both starts and ends after midnight (e.g. Varjyam
-    # "04:27 AM, Oct 12 - 06:08 AM, Oct 12") carries the same cross-day date
-    # tag on both ends verbatim from Drik Panchang - show it once, at the
-    # end, instead of repeating it on both sides of the dash.
-    s = re.sub(
-        r'(\d{1,2}:\d{2}\s*(?:AM|PM)),\s*([A-Za-z]+ \d{1,2})\s*\u2013\s*'
-        r'(\d{1,2}:\d{2}\s*(?:AM|PM)),\s*\2\b',
-        lambda m: f"{m.group(1)} \u2013 {m.group(3)}, {m.group(2)}",
-        s,
-    )
-    return s
-
-
-def fmt_compact_chain(value, lang):
-    """'Dwadashi upto 06:21 AM, Aug 25, then Amavasya' -> 'Dwadashi
-    (06:21 AM)' - the reference layout's compact single-line convention
-    for Tithi/Nakshatra/Yoga/Karana: name plus when it ends, dropping the
-    'then next name' continuation and any cross-day date tag. If the
-    value has no transition (spans the whole Panchang day), returns it
-    unchanged. Handles the already-translated Telugu/Tamil chain text too
-    (which uses the localized 'upto' word after the time, per
-    translate_value's word-order swap) as well as the raw English form."""
-    if not value:
-        return value
-    if lang == "en":
-        m = re.match(r'^(.*?)\s+upto\s+(\d{1,2}:\d{2}\s*(?:AM|PM))', value, re.IGNORECASE)
-    else:
-        upto_word = re.escape(LABELS[lang]["upto"])
-        m = re.match(r'^(.*?)\s+(\d{1,2}:\d{2}\s*(?:AM|PM))\s*' + upto_word, value)
-    if m:
-        return f"{m.group(1).strip()} ({m.group(2)})"
-    return value.strip()
-
-
 LABELS = {
     "en": {
         "title": "Today's Panchangam", "core": "Panchang Core", "sunmoon": "Sun & Moon",
         "auspicious": "Auspicious Timings", "inauspicious": "Inauspicious Timings",
         "tithi": "Tithi", "nakshatra": "Nakshatra", "yoga": "Yoga", "karana": "Karana",
         "paksha": "Paksha", "sunrise": "Sunrise", "sunset": "Sunset", "moonrise": "Moonrise",
-        "moonset": "Moonset", "brahma": "Brahma Muhurat", "abhijit": "Abhijit Muhurat",
-        "amrit": "Amrit Kaal", "rahu": "Rahu", "yama": "Yamaganda",
-        "gulika": "Gulika", "durmuhurtam": "Dur Muhurat", "varjyam": "Varjyam",
+        "moonset": "Moonset", "brahma": "Brahma Muhurtham", "abhijit": "Abhijit Muhurtham",
+        "amrit": "Amrit Kalam", "rahu": "Rahu Kalam", "yama": "Yamagandam",
+        "gulika": "Gulikai Kalam", "durmuhurtam": "Durmuhurtam", "varjyam": "Varjyam",
         "upto": "upto", "then": "then", "none_today": "None Today",
+        "daytime": "Good Time (Day)",
         "yearinfo": "Year & Season", "samvatsara": "Samvatsara", "masa": "Masa",
-        "ritu": "Ritu", "ayana": "Ayana", "vara": "Vara", "soorya_rasi": "Soorya Rasi",
-        "sun_in": "Sun in", "shaka_samvat": "Shaka Samvat", "gata_kali": "Gata Kali",
-        "date": "Date", "day": "Day", "godhuli": "Godhuli",
-        "sun_sign": "Sun Sign", "moon_sign": "Moon Sign",
+        "ritu": "Ritu", "ayana": "Ayana",
     },
     "te": {
         "title": "నేటి పంచాంగం", "core": "పంచాంగ వివరాలు", "sunmoon": "సూర్య చంద్ర సమయాలు",
@@ -339,11 +277,9 @@ LABELS = {
         "amrit": "అమృత కాలం (ఘడియలు)", "rahu": "రాహు కాలం", "yama": "యమగండం",
         "gulika": "గుళిక కాలం", "durmuhurtam": "దుర్ముహూర్తం", "varjyam": "వర్జ్యము",
         "upto": "వరకు", "then": "తర్వాత", "none_today": "ఈరోజు లేదు",
+        "daytime": "పగటి శుభ సమయం",
         "yearinfo": "సంవత్సర వివరాలు", "samvatsara": "సంవత్సరం", "masa": "మాసం",
-        "ritu": "ఋతువు", "ayana": "అయనం", "vara": "వారం", "soorya_rasi": "సూర్య రాశి",
-        "sun_in": "సూర్యుడు", "shaka_samvat": "శాలివాహన శకం", "gata_kali": "గత కలి",
-        "date": "తేదీ", "day": "వారం", "godhuli": "గోధూళి ముహూర్తం",
-        "sun_sign": "సూర్య రాశి", "moon_sign": "చంద్ర రాశి",
+        "ritu": "ఋతువు", "ayana": "అయనం",
     },
     "ta": {
         "title": "இன்றைய பஞ்சாங்கம்", "core": "பஞ்சாங்க விவரங்கள்", "sunmoon": "சூரிய சந்திர நேரங்கள்",
@@ -354,11 +290,9 @@ LABELS = {
         "amrit": "அமிர்த காலம்", "rahu": "ராகு காலம்", "yama": "எமகண்டம்",
         "gulika": "குளிகை காலம்", "durmuhurtam": "துர்முகூர்த்தம்", "varjyam": "வர்ஜ்யம்",
         "upto": "வரை", "then": "பின்", "none_today": "இன்று இல்லை",
+        "daytime": "பகல் சுப நேரம்",
         "yearinfo": "ஆண்டு விவரங்கள்", "samvatsara": "வருடம்", "masa": "மாதம்",
-        "ritu": "ருது", "ayana": "அயனம்", "vara": "வாரம்", "soorya_rasi": "சூரிய ராசி",
-        "sun_in": "சூரியன்", "shaka_samvat": "சாலிவாஹன சகம்", "gata_kali": "கத கலி",
-        "date": "தேதி", "day": "வாரம்", "godhuli": "கோதூளி முகூர்த்தம்",
-        "sun_sign": "சூரிய ராசி", "moon_sign": "சந்திர ராசி",
+        "ritu": "ருது", "ayana": "அயனம்",
     },
 }
 
@@ -460,158 +394,124 @@ def fetch_panchang(date_str):
         end_idx = len(lines)
     region = lines[start_idx:end_idx]
 
-    # find_value() and find_window_value() below (and extract_chain_fields()
-    # above them) all read straight from the actual HTML table structure
-    # rather than a flattened, top-to-bottom text stream. An earlier version
-    # of this file tried to re-glue a flat text stream back into field
-    # values with regex "continuation" rules, and that broke in two
-    # different ways once actually tested against live pages: (1) a bare
-    # info-icon glyph ("ⓘ") sitting mid-value broke the gluing early (the
-    # Karana/Kinstughna production crash - see extract_chain_fields()'s
-    # docstring); (2) a cross-midnight value like "04:27 AM, Oct 12 to
-    # 06:08 AM, Oct 12" (real Varjyam markup) has a bare "," in it that the
-    # old continuation regex didn't recognize, so it silently truncated the
-    # value to just "04:27 AM" - dropping the entire "to ... Oct 12" end of
-    # the range. Reading the dpTableKey/dpTableValue cell pair directly
-    # sidesteps both: whatever text is actually in the value cell (commas,
-    # date tags, info-icon or not) comes back whole, in one step, with no
-    # guessing about where one field's text ends and the next begins.
-    #
-    # These fields all live inside one of a handful of known "card" wrapper
-    # divs (dpSunriseMoonriseCardWrapper, dpCorePanchangCardWrapper,
-    # dpAuspiciousCardWrapper, dpInauspiciousCardWrapper,
-    # dpLunarDateCardWrapper, dpAyanaRituCardWrapper) - restricting the
-    # search to just these (rather than the whole page) avoids an unrelated
-    # dpTableKey elsewhere on the page (there are several other "card"
-    # widgets further down, e.g. Tamil Yoga, Rashi/Nakshatra, Panchaka)
-    # that might happen to reuse the same label text for something else.
-    _RELEVANT_WRAPPER_CLASSES = (
-        "dpSunriseMoonriseCardWrapper", "dpCorePanchangCardWrapper",
-        "dpAuspiciousCardWrapper", "dpInauspiciousCardWrapper",
-        "dpLunarDateCardWrapper", "dpAyanaRituCardWrapper",
+    # Drik Panchang sometimes renders a time and its AM/PM marker as two
+    # separate text nodes (e.g. "05:52" then "AM" on their own lines), and
+    # a chained value like "Chaturdashi upto 06:28 PM, then Amavasya" can
+    # be split into many fragments ("Chaturdashi", "upto", "06:28", "PM",
+    # "then", "Amavasya", each its own line). find_value() below handles
+    # the simple single-fragment case; find_chain_value() and
+    # find_window_value() below it handle the two ways a value can span
+    # multiple fragments, each with its own stopping rule so one field's
+    # leftover fragments can never bleed into the next field's value.
+    _BARE_CONTINUE_RE = re.compile(r'^(AM|PM|to|\d{1,2}:\d{2})$', re.IGNORECASE)
+    _CHAIN_CONTINUE_RE = re.compile(r'^(AM|PM|to|upto|then|\d{1,2}:\d{2})$', re.IGNORECASE)
+    _RANGE_COMPLETE_RE = re.compile(
+        r'\d{1,2}:\d{2}\s*(AM|PM)\s*to\s*\d{1,2}:\d{2}\s*(AM|PM)', re.IGNORECASE
     )
 
-    def _dp_value_cell(label):
-        """Find the dpTableKey cell (inside one of the wrappers above) whose
-        visible text is exactly `label`, and return its paired
-        dpTableValue cell (the very next sibling cell in the same row)."""
-        for wrapper_cls in _RELEVANT_WRAPPER_CLASSES:
-            wrapper = soup.find("div", class_=wrapper_cls)
-            if wrapper is None:
-                continue
-            for key_cell in wrapper.find_all("div", class_="dpTableKey"):
-                if key_cell.get_text(strip=True) == label:
-                    val_cell = key_cell.find_next_sibling("div", class_="dpTableValue")
-                    if val_cell is not None:
-                        return val_cell
+    def _join_frags(frags):
+        """Join fragments with a comma before "then" for readability
+        ("upto 06:28 PM, then Amavasya" instead of a run-on sentence)."""
+        out = frags[0]
+        for f in frags[1:]:
+            if f.lower() == "then":
+                out += ","
+            out += " " + f
+        return re.sub(r'\s+', ' ', out).strip()
+
+    def _first_fragment(label, lookahead):
+        """Locate `label` in the bounded region and return the index of the
+        next real (non-empty, non-icon, non-label-repeat) line after it, or
+        None if not found."""
+        for i, l in enumerate(region):
+            if l == label:
+                for j in range(i + 1, min(i + 1 + lookahead, len(region))):
+                    cand = region[j]
+                    if cand and cand != label and not cand.startswith("ⓘ"):
+                        return j
         return None
 
-    def _clean_cell_text(val_cell):
-        """Visible text of a dpTableValue cell, with the info-icon popup
-        (ⓘ and its hidden tooltip data) stripped out first so it never
-        pollutes the result, whitespace collapsed, and the stray space a
-        split-up ", Oct 12" date tag leaves before its comma tidied up."""
-        val_copy = BeautifulSoup(str(val_cell), "html.parser")
-        for popup in val_copy.find_all("div", class_="dpElementInfoPopupWrapper"):
-            popup.decompose()
-        text = re.sub(r'\s+', ' ', val_copy.get_text(" ", strip=True)).strip()
-        text = re.sub(r'\s+,', ',', text)
-        return text or None
-
     def find_value(label, lookahead=6):
-        """Simple lookup for fields that are always a single value (Weekday,
-        Paksha, Sunrise/Sunset/Moonrise/Moonset, and the best-effort
-        year-info fields). `lookahead` is unused now - kept so existing call
-        sites don't need to change - value cells are read directly from the
-        HTML table rather than scanned for within N lines of text."""
-        val_cell = _dp_value_cell(label)
-        if val_cell is None:
+        """Simple lookup for fields that are always a single fragment or a
+        single AM/PM-glued time (Weekday, Paksha, Sunrise/Sunset/Moonrise/
+        Moonset, and the best-effort year-info fields)."""
+        j = _first_fragment(label, lookahead)
+        if j is None:
             return None
-        return _clean_cell_text(val_cell)
+        frags = [region[j]]
+        k = j + 1
+        while k < len(region) and k < j + 8 and _BARE_CONTINUE_RE.match(region[k] or ""):
+            frags.append(region[k])
+            k += 1
+        return re.sub(r'\s+', ' ', " ".join(frags)).strip()
 
     def find_window_value(label, max_windows=1, lookahead=6):
         """For time-range fields (Rahu Kalam, Yamaganda, Gulikai Kalam,
-        Brahma Muhurta, Abhijit, Amrit Kalam, Dur Muhurtam, Varjyam). The
-        whole value cell's text is returned as-is - whether it holds one
-        window ("04:26 AM to 05:14 AM") or, on days Dur Muhurtam/Varjyam
-        have two, both of them together - so `max_windows` is unused now
-        (kept so existing call sites don't need to change)."""
-        val_cell = _dp_value_cell(label)
-        if val_cell is None:
+        Brahma Muhurta, Abhijit, Amrit Kalam, Dur Muhurtam, Varjyam). Stops
+        as soon as `max_windows` complete "H:MM AM/PM to H:MM AM/PM" ranges
+        have been formed, so it can never keep gluing on fragments that
+        actually belong to the NEXT field (the bug that produced a garbled
+        "01:55 PM to 03:31 PM 03:18 PM to" Gulikai Kalam value in
+        production). max_windows=1 for fields that are always a single
+        window; =2 for Dur Muhurtam/Varjyam, which can have two."""
+        j = _first_fragment(label, lookahead)
+        if j is None:
             return None
-        return _clean_cell_text(val_cell)
+        frags = [region[j]]
+        k = j + 1
+        windows_seen = 0
+        while k < len(region) and (k - j) < 20:
+            cand = region[k]
+            if not cand:
+                k += 1
+                continue
+            if not _BARE_CONTINUE_RE.match(cand) and cand.lower() != "then":
+                break
+            frags.append(cand)
+            k += 1
+            joined = re.sub(r'\s+', ' ', " ".join(frags))
+            windows_seen = len(_RANGE_COMPLETE_RE.findall(joined))
+            if windows_seen >= max_windows and cand.lower() != "then":
+                break
+        return _join_frags(frags)
 
-    def extract_chain_fields():
-        """Tithi, Nakshatra, Yoga and Karana can each transition to a second
-        (sometimes third) name partway through the day. Drik Panchang lays
-        these four fields out as a 2-column grid of "dpTableRow" divs - each
-        row holds a (key, value) cell pair for the left field and another
-        (key, value) pair for the right field - where a field's 2nd/3rd
-        segment is a LATER row with an EMPTY key cell in that same column
-        position, and a field that finishes early simply hands its column
-        slot to the next field's rows. Example real markup for 11/10/2026:
-            Row 1: Yoga | Vaidhriti upto 09:05 PM   | Karana | Kinstughna upto 09:21 AM
-            Row 2: ""   | Vishkambha                | ""     | Bava upto 09:30 PM
-            Row 3: Weekday | Raviwara               | ""     | Balava   <- Karana's
-                                                                           3rd segment,
-                                                                           while the
-                                                                           Yoga/Weekday
-                                                                           column has
-                                                                           already moved
-                                                                           on
-        A flat top-to-bottom text read (the old approach, find_chain_value)
-        has no way to tell "Balava" apart from the Weekday value next to it,
-        or that "Vishkambha"/"Dwitiya"/"Swati" belong to the row above - it
-        silently dropped every field's 2nd/3rd segment, and once (Kinstughna
-        above) that dropped segment was the ONLY one whose name was in our
-        vocab, which took down the whole run. Walking the actual table
-        structure instead tracks "which field is this column currently
-        continuing" per column, so multi-segment chains are captured in
-        full and correctly, matching Drik Panchang exactly.
-        """
-        chains = {"Tithi": [], "Nakshatra": [], "Yoga": [], "Karana": []}
-        wrapper = soup.find("div", class_="dpCorePanchangCardWrapper")
-        card = wrapper.find("div", class_="dpTableCard") if wrapper else None
-        if card is None:
-            return chains
-        current = {}
-        for row in card.find_all("div", class_="dpTableRow", recursive=False):
-            cells = row.find_all("div", class_="dpTableCell", recursive=False)
-            for col in range(0, len(cells) - 1, 2):
-                key_cell, val_cell = cells[col], cells[col + 1]
-                pair_idx = col // 2
-                key_text = key_cell.get_text(strip=True)
-                if key_text:
-                    # A non-empty key cell always starts a (possibly new)
-                    # field in this column; only track it further if it's
-                    # one of our four chain fields.
-                    current[pair_idx] = key_text if key_text in chains else None
-                field = current.get(pair_idx)
-                if field not in chains:
-                    continue
-                # Strip the info-icon popup (ⓘ and its hidden tooltip data)
-                # before reading the cell's visible text, so it never breaks
-                # up or pollutes the captured segment text.
-                val_copy = BeautifulSoup(str(val_cell), "html.parser")
-                for popup in val_copy.find_all("div", class_="dpElementInfoPopupWrapper"):
-                    popup.decompose()
-                text = re.sub(r'\s+', ' ', val_copy.get_text(" ", strip=True)).strip()
-                text = re.sub(r'\s+,', ',', text)  # "AM , Oct 21" -> "AM, Oct 21"
-                if text:
-                    chains[field].append(text)
-        return chains
-
-    chain_fields = extract_chain_fields()
-
-    def chain_value(label):
-        segs = chain_fields.get(label)
-        return ", then ".join(segs) if segs else None
+    def find_chain_value(label, lookahead=6):
+        """For fields that name something and can optionally transition to
+        a second (or third) name partway through the day - Tithi,
+        Nakshatra, Yoga, Karana - rendered as e.g. "Chaturdashi", "upto",
+        "06:28", "PM", "then", "Amavasya" each on their own line. Glues
+        together the name plus any "upto TIME, then NAME" continuations;
+        stops at the first line that doesn't fit that grammar (the next
+        field's label)."""
+        j = _first_fragment(label, lookahead)
+        if j is None:
+            return None
+        frags = [region[j]]
+        k = j + 1
+        while k < len(region) and (k - j) < 30:
+            cand = region[k]
+            if not cand:
+                k += 1
+                continue
+            if _CHAIN_CONTINUE_RE.match(cand):
+                frags.append(cand)
+                k += 1
+                continue
+            # A bare word immediately after "then" is the next segment's
+            # name (e.g. "...then", "Amavasya") - anything else means we've
+            # hit unrelated content (the next field's label) and should stop.
+            if frags[-1].lower() == "then" and re.match(r'^[A-Za-z ]+$', cand):
+                frags.append(cand)
+                k += 1
+                continue
+            break
+        return _join_frags(frags)
 
     data = {}
-    data["tithi"] = chain_value("Tithi")
-    data["nakshatra"] = chain_value("Nakshatra")
-    data["yoga"] = chain_value("Yoga")
-    data["karana"] = chain_value("Karana")
+    data["tithi"] = find_chain_value("Tithi")
+    data["nakshatra"] = find_chain_value("Nakshatra")
+    data["yoga"] = find_chain_value("Yoga")
+    data["karana"] = find_chain_value("Karana")
     data["weekday"] = find_value("Weekday")
     data["paksha"] = find_value("Paksha")
     data["sunrise"] = find_value("Sunrise")
@@ -739,7 +639,7 @@ def validate_data(data):
         problems.append(f"weekday_full='{data.get('weekday_full')}' is not a recognized weekday")
 
     time_fields = ["sunrise", "sunset", "moonrise", "moonset", "brahma_muhurta",
-                   "rahu_kalam", "yamaganda", "gulikai_kalam"]
+                   "rahu_kalam", "yamaganda", "gulikai_kalam", "durmuhurtam", "varjyam"]
     for field in time_fields:
         val = data.get(field)
         if not val:
@@ -747,16 +647,14 @@ def validate_data(data):
         elif not TIME_RE.search(val):
             problems.append(f"{field}='{val}' does not look like a valid time")
 
-    # Abhijit Muhurta, Amrit Kalam, Varjyam and Dur Muhurtam are genuinely
-    # absent from the source page on some days (Abhijit doesn't occur on
-    # certain weekdays; Amrit Kalam and Varjyam depend on the Moon's
-    # nakshatra position and some days the row simply isn't on Drik's page
-    # at all - this is what produced the Oct 13 2026 "varjyam is missing"
-    # failure) - that's real panchang behavior, not a
+    # Abhijit Muhurta and Amrit Kalam are genuinely absent from the source
+    # page on some days (Abhijit doesn't occur on certain weekdays; Amrit
+    # Kalam depends on the Moon's position and some days it simply doesn't
+    # fall during a usable window) - that's real panchang behavior, not a
     # scraping failure, so a missing value here should not block sending
     # the rest of the day's card. Only flag it if something WAS scraped but
     # doesn't look like a time (that would be an actual parsing bug).
-    for field in ("abhijit", "amrit_kalam", "varjyam", "durmuhurtam"):
+    for field in ("abhijit", "amrit_kalam"):
         val = data.get(field)
         if val and val.lower() != "none" and not TIME_RE.search(val):
             problems.append(f"{field}='{val}' does not look like a valid time")
@@ -787,14 +685,6 @@ TEMPLATE_PATH = os.path.join(ASSET_DIR, "panchangam_template.jpg")
 # card look bottom-heavy/unbalanced, so it's gone from the asset now.
 HEADER_FRAC = 0.1242
 FOOTER_FRAC = 0.8071
-# The actual purple header/footer bands in the template are noticeably
-# shorter than the safety margins above (measured directly from the
-# image: header ends ~y=226/2245, footer starts ~y=1922/2245) - used only
-# for the cream background fill below, so that fill reaches the real
-# edges of the purple bands instead of stopping short and leaving a
-# visible white gap between the card and the header/footer.
-HEADER_VISUAL_BOTTOM_FRAC = 0.1007
-FOOTER_VISUAL_TOP_FRAC = 0.8561
 LEFT_FRAC = 0.045
 RIGHT_FRAC = 0.955
 
@@ -802,23 +692,10 @@ RIGHT_FRAC = 0.955
 # A single purple accent (matches the temple's own header/footer bars) is
 # used only for section-title text; every data value is bold near-black for
 # max readability; thin grey lines divide sections instead of color fills.
-ACCENT_COL = (95, 40, 130)      # kept for reference; no longer used for the content-area boxes
+ACCENT_COL = (95, 40, 130)      # the ONE accent color - section-title text only
 TEXT_COL = (18, 14, 10)         # near-black, max contrast on white
 LINE_COL = (205, 200, 210)      # thin divider / border lines
 SUBTITLE_COL = (95, 40, 130)
-# Content-area palette: gold-bronze borders and dark maroon-brown text on
-# a plain white card background (per explicit request - a warm cream fill
-# was used earlier but the user asked for it back to white).
-CARD_BG_COL = (255, 255, 255)
-BORDER_COL = (185, 138, 52)
-LABEL_COL = (109, 27, 27)
-VALUE_COL = (46, 27, 14)
-# Functional pill-header colors for the two timing boxes - muted versions
-# of the reference's maroon/green (the one place a second/third color is
-# used, since it signals "avoid this" vs "good time for this" rather than
-# just being decorative theme).
-INAUSPICIOUS_PILL_COL = (133, 51, 51)
-AUSPICIOUS_PILL_COL = (44, 105, 71)
 
 def font_for(lang, weight, size):
     if lang == "en":
@@ -857,322 +734,319 @@ def _wrap_lines(draw, text, font, max_width):
     return lines
 
 
-def _row_geom(draw, label, value, label_font, value_font, avail_w, bullet_d, gap):
-    """Measures one 'bullet  LABEL : value' row, wrapping the value (with
-    a hanging indent starting right after that row's own label) if it
-    doesn't fit - matching the reference's inline 'LABEL : VALUE' style
-    rather than a shared column across the whole box."""
-    lbl_text = f"{label} :"
-    bbox = draw.textbbox((0, 0), lbl_text, font=label_font)
-    lbl_w = bbox[2] - bbox[0]
-    x_off = bullet_d + gap + lbl_w + gap
-    val_w = max(avail_w - x_off, int(avail_w * 0.25))
-    lines = _wrap_lines(draw, value, value_font, val_w)
-    return {"lbl_text": lbl_text, "lines": lines, "x_off": x_off}
+def _split_chain_segments(chain_str, then_word):
+    """Split a joined chain string (Tithi/Nakshatra/Yoga/Karana - already
+    translated/formatted, e.g. "Saptami upto 04:03 AM, Jul 21, then
+    Ashtami upto 11:47 PM, Jul 21, then Navami") into one display line per
+    named segment: ["Saptami upto 04:03 AM, Jul 21", "Ashtami upto 11:47
+    PM, Jul 21", "Navami"]. Each segment gets its own bullet-style line
+    instead of being run together into one long sentence, matching the
+    reference layout the user asked to match."""
+    if not chain_str:
+        return []
+    parts = re.split(r',\s*' + re.escape(then_word) + r'\s+', chain_str)
+    return [p.strip() for p in parts if p and p.strip()]
 
 
-def _measure_box_rows(draw, rows, label_font, value_font, box_w, row_h, pad, bullet_d, gap):
-    inner_w = box_w - 2 * pad - bullet_d - gap
-    rows_geom = []
-    total_h = 0
-    for lbl, val in rows:
-        g = _row_geom(draw, lbl, val, label_font, value_font, inner_w, bullet_d, gap)
-        total_h += max(len(g["lines"]), 1) * row_h
-    for lbl, val in rows:
-        g = _row_geom(draw, lbl, val, label_font, value_font, inner_w, bullet_d, gap)
-        rows_geom.append(g)
-    return rows_geom, total_h
-
-
-def _draw_box_rows(d, rows_geom, x, y, row_h, label_font, value_font, bullet_d, gap,
-                    bullet_col, label_col, value_col, extra_step=0):
-    """extra_step adds breathing room between (single-line) rows without
-    changing font size, so a box that naturally needs less height than
-    its neighbor can be stretched to fill it evenly, rather than leaving
-    one lump of blank space at the bottom."""
-    ry = y
-    for g in rows_geom:
-        n = max(len(g["lines"]), 1)
-        slot_h = n * row_h + extra_step
-        ty = ry + (extra_step / 2 if n == 1 else 0)
-        by = ry + slot_h / 2 if n == 1 else ty + row_h / 2
-        r = bullet_d / 2
-        d.ellipse([x, by - r, x + bullet_d, by + r], fill=bullet_col)
-        d.text((x + bullet_d + gap, ty), g["lbl_text"], font=label_font, fill=label_col)
-        vx, vy = x + g["x_off"], ty
-        for line in g["lines"]:
-            d.text((vx, vy), line, font=value_font, fill=value_col)
-            vy += row_h
-        ry += slot_h
-    return ry
-
-
-def _measure_v2(draw, lang, blocks, content_w, font_scale, scale):
-    """Compute the box-based layout's geometry at a given font_scale
+def _measure_column(draw, lang, groups, col_w, font_scale, scale):
+    """Compute the wrapped-line layout for one column (a list of groups,
+    each an optional header + a list of already-formatted text rows)
     WITHOUT drawing anything, so render_card can auto-shrink the font
-    until everything fits between the template's header and footer bars.
-
-    blocks = {
-        "info_bar": {"date": str, "day": str} (a single big bold centered
-                     line spanning the full width - the biggest text on
-                     the card, meant to be readable at a glance),
-        "left_box": [(label, value), ...] (Samvatsara through Karana, one
-                     bordered box, each field its own bulleted row),
-        "right_boxes": [{"pill": str, "pill_color": (r,g,b),
-                          "rows": [(label, value), ...]}, ...] (Inauspicious
-                         Timings / Auspicious Timings, each its own
-                         bordered box with a solid-color pill header),
-        "bottom_box": {"left": [(label, value), ...], "right": [(label, value), ...]}
-                      (Sunrise/Sunset/Moonrise/Moonset on the left, Sun
-                       Sign/Moon Sign on the right - one full-width
-                       bordered box split into two columns at the same
-                       divider position as left_box/right_boxes above).
-    }
-    """
-    label_size = max(int(38 * scale * font_scale), 15)
-    value_size = max(int(38 * scale * font_scale), 15)
-    pill_size = max(int(37 * scale * font_scale), 15)
+    until both columns fit between the template's header and footer bars."""
+    header_size = max(int(38 * scale * font_scale), 14)
+    row_size = max(int(42 * scale * font_scale), 14)
+    pad = max(int(6 * scale * font_scale), 4)
+    line_gap = max(int(4 * scale * font_scale), 2)
+    group_gap = max(int(14 * scale * font_scale), 6)
 
     fonts = {
-        "label": font_for(lang, "bold", label_size),
-        "value": font_for(lang, "medium", value_size),
-        "pill": font_for(lang, "bold", pill_size),
+        "header": font_for(lang, "bold", header_size),
+        "row": font_for(lang, "bold", row_size),
     }
+    row_line_h = row_size + line_gap
 
-    pad = max(int(20 * scale * font_scale), 10)
-    bullet_d = max(int(20 * scale * font_scale), 10)
-    gap = max(int(10 * scale * font_scale), 5)
-    col_gap = max(int(24 * scale * font_scale), 12)
-    box_gap = max(int(18 * scale * font_scale), 9)
-    row_h = value_size + int(18 * scale * font_scale)
-    pill_h = pill_size + int(24 * scale * font_scale)
-    border_w = max(int(3 * scale), 2)
-    radius = max(int(16 * scale), 7)
+    geoms = []
+    total_h = 0
+    for gi, grp in enumerate(groups):
+        g = {"header": grp.get("header"), "row_lines": []}
+        gh = (header_size + 2 * pad) if g["header"] else 0
+        for text in grp["rows"]:
+            wrapped = _wrap_lines(draw, text, fonts["row"], col_w)
+            g["row_lines"].append(wrapped)
+            gh += len(wrapped) * row_line_h
+        geoms.append(g)
+        total_h += gh
+        if gi < len(groups) - 1:
+            total_h += group_gap
 
-    left_col_w = int((content_w - col_gap) * 0.47)
-    right_col_w = content_w - col_gap - left_col_w
-
-    left_rows_geom, left_rows_h = _measure_box_rows(
-        draw, blocks["left_box"], fonts["label"], fonts["value"],
-        left_col_w, row_h, pad, bullet_d, gap)
-    left_box_h = left_rows_h + 2 * pad
-
-    right_boxes_geom = []
-    right_col_h = 0
-    for grp in blocks["right_boxes"]:
-        rows_geom, rows_h = _measure_box_rows(
-            draw, grp["rows"], fonts["label"], fonts["value"],
-            right_col_w, row_h, pad, bullet_d, gap)
-        box_h = pill_h + rows_h + 2 * pad
-        right_boxes_geom.append({"pill": grp["pill"], "pill_color": grp["pill_color"],
-                                  "rows": rows_geom, "h": box_h})
-        right_col_h += box_h + box_gap
-    right_col_h -= box_gap if right_boxes_geom else 0
-
-    main_row_h = max(left_box_h, right_col_h)
-
-    # Bottom box is two columns (not one), split at the same x-position as
-    # the left_box/right_boxes divider above, for a consistent grid look:
-    # Sunrise/Sunset/Moonrise/Moonset on the left, Sun Sign/Moon Sign on
-    # the right - rather than one narrow list with a lot of empty space
-    # beside it.
-    bottom_left_geom, bottom_left_h = _measure_box_rows(
-        draw, blocks["bottom_box"]["left"], fonts["label"], fonts["value"],
-        left_col_w, row_h, pad, bullet_d, gap)
-    bottom_right_geom, bottom_right_h = _measure_box_rows(
-        draw, blocks["bottom_box"]["right"], fonts["label"], fonts["value"],
-        right_col_w, row_h, pad, bullet_d, gap)
-    bottom_rows_h = max(bottom_left_h, bottom_right_h)
-    bottom_box_h = bottom_rows_h + 2 * pad
-
-    total_h = box_gap + main_row_h + box_gap + bottom_box_h
-
-    return {
-        "total_h": total_h, "main_row_h": main_row_h,
-        "left_col_w": left_col_w, "right_col_w": right_col_w,
-        "left_box_h": left_box_h, "right_col_h": right_col_h, "bottom_box_h": bottom_box_h,
-        "left_rows_geom": left_rows_geom, "right_boxes_geom": right_boxes_geom,
-        "bottom_left_geom": bottom_left_geom, "bottom_right_geom": bottom_right_geom,
-        "fonts": fonts, "pad": pad, "bullet_d": bullet_d, "gap": gap,
-        "col_gap": col_gap, "box_gap": box_gap, "row_h": row_h, "pill_h": pill_h,
-        "border_w": border_w, "radius": radius,
-    }
+    return total_h, geoms, fonts, header_size, row_line_h, pad, group_gap
 
 
-def render_card(lang, blocks, outpath):
-    """Draws a bordered-box Panchang card onto the temple's template
-    image: a single big bold Date | Day banner spanning the full width
-    (deliberately the biggest text on the card, readable at a glance), a
-    left box listing Samvatsara through Karana as bulleted 'Label : Value'
-    rows, a right column of two pill-headed boxes (Inauspicious/
-    Auspicious Timings), and a bottom box for Sunrise/Sunset/Moonrise/
-    Moonset plus Sun Sign/Moon Sign - on a white background with gold-
-    bronze borders, composited onto this project's own header/footer
-    template. Font size auto-shrinks as needed so nothing ever overlaps
-    or runs past the footer bar."""
-    base = Image.open(TEMPLATE_PATH).convert("RGB")
-    W, H = base.size
-    img = base.copy()
+# --------------------------------------------------------------------------
+# Daily header/footer colour theme
+# --------------------------------------------------------------------------
+# Each palette: (band background, big-text colour [was yellow], small-text
+# colour [was white], body accent for headings on the white page). None of
+# them is red/black or a shade of either; every text colour is checked for
+# strong contrast against its band at import time (see _contrast).
+PALETTES = [
+    ((103, 45, 145), (255, 255, 0), (255, 255, 255), (103, 45, 145)),    # original purple
+    ((14, 45, 100), (255, 214, 10), (255, 255, 255), (14, 45, 100)),     # navy + gold
+    ((0, 92, 92), (255, 235, 90), (255, 255, 255), (0, 92, 92)),         # teal + lemon
+    ((22, 84, 46), (255, 223, 70), (255, 255, 255), (22, 84, 46)),       # forest + gold
+    ((25, 55, 130), (255, 200, 40), (235, 244, 255), (25, 55, 130)),     # royal blue + amber
+    ((60, 40, 140), (255, 224, 102), (255, 255, 255), (60, 40, 140)),    # indigo + gold
+    ((0, 105, 130), (255, 238, 120), (255, 255, 255), (0, 105, 130)),    # ocean + lemon
+    ((30, 70, 70), (255, 200, 87), (255, 255, 255), (30, 70, 70)),       # slate green + amber
+    ((255, 232, 150), (20, 45, 120), (10, 80, 50), (20, 45, 120)),       # butter + navy / green
+    ((190, 225, 245), (10, 50, 120), (20, 60, 70), (10, 50, 120)),       # sky + navy / teal
+]
+
+
+def _lum(c):
+    def ch(v):
+        v /= 255.0
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    return 0.2126 * ch(c[0]) + 0.7152 * ch(c[1]) + 0.0722 * ch(c[2])
+
+
+def _contrast(a, b):
+    la, lb = _lum(a), _lum(b)
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+PALETTES = [p for p in PALETTES
+            if _contrast(p[0], p[1]) >= 4.5 and _contrast(p[0], p[2]) >= 4.5]
+
+
+def _palette_index(dt):
+    import random
+    return random.Random(dt.toordinal() * 7919 + 13).randrange(len(PALETTES))
+
+
+def pick_palette(dt):
+    """Date-seeded, so all three language cards of a day share one theme,
+    and never the same theme two days running."""
+    idx = _palette_index(dt)
+    prev = _palette_index(dt - timedelta(days=1))
+    if idx == prev:
+        idx = (idx + 1) % len(PALETTES)
+    return PALETTES[idx]
+
+
+_ORIG_BAND = (103, 45, 145)
+_THEME_CACHE = {}
+
+
+def _themed_base(palette):
+    """Template with only the two coloured bands recoloured: purple ->
+    band colour, yellow lettering -> big-text colour, white lettering ->
+    small-text colour (edge pixels blended proportionally so the lettering
+    stays smooth). The deity photo is left untouched."""
+    if palette in _THEME_CACHE:
+        return _THEME_CACHE[palette].copy()
+    img = Image.open(TEMPLATE_PATH).convert("RGB")
+    if palette[0] == _ORIG_BAND and palette[1] == (255, 255, 0) and palette[2] == (255, 255, 255):
+        _THEME_CACHE[palette] = img
+        return img.copy()
+    W, H = img.size
+    bg2, y2, w2 = palette[0], palette[1], palette[2]
+    px = img.load()
+    photo = (int(W * 0.0353), int(H * 0.8143), int(W * 0.1651), int(H * 0.9780))  # x0,y0,x1,y1
+
+    def recolor(x0, y0, x1, y1):
+        for y in range(y0, y1):
+            in_photo_rows = photo[1] <= y < photo[3]
+            for x in range(x0, x1):
+                if in_photo_rows and photo[0] <= x < photo[2]:
+                    continue
+                r, g, b = px[x, y]
+                if b < 138:           # purple <-> yellow axis
+                    f = min((145 - b) / 145.0, 1.0)
+                    t = y2
+                elif b > 152:         # purple <-> white axis
+                    f = min((b - 145) / 110.0, 1.0)
+                    t = w2
+                else:
+                    f, t = 0.0, bg2
+                px[x, y] = (int(bg2[0] + (t[0] - bg2[0]) * f),
+                            int(bg2[1] + (t[1] - bg2[1]) * f),
+                            int(bg2[2] + (t[2] - bg2[2]) * f))
+
+    recolor(0, 0, W, int(H * HEADER_FRAC))
+    recolor(int(W * 0.0164), int(H * FOOTER_FRAC), int(W * 0.9924), int(H * 0.9846))
+    _THEME_CACHE[palette] = img
+    return img.copy()
+
+
+def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None):
+    """Draws a two-column sheet of labeled data (left: calendar identity +
+    Tithi/Nakshatra/Yoga/Karana as one bullet line per segment; right:
+    Sun/Moon times, Inauspicious Period, Auspicious Period) onto the
+    temple's template image, styled after the reference layout the user
+    provided - plain left-aligned "Label: Value" lines and section
+    headers, no boxes. Font size auto-shrinks as needed so nothing ever
+    overlaps or runs past the footer bar."""
+    palette = palette or PALETTES[0]
+    body_col = palette[3]
+    img = _themed_base(palette)
+    W, H = img.size
     d = ImageDraw.Draw(img)
 
     top = int(H * HEADER_FRAC)
-    bottom = int(H * FOOTER_VISUAL_TOP_FRAC) - int(H * 0.014)
+    # Small safety margin below the nominal footer-bar boundary, so even a
+    # rounding edge case never lets content visually touch the temple's
+    # footer banner.
+    bottom = int(H * FOOTER_FRAC) - int(H * 0.008)
     left = int(W * LEFT_FRAC)
     right = int(W * RIGHT_FRAC)
     content_w = right - left
     scale = W / 1587.0
-    content_top = int(H * HEADER_VISUAL_BOTTOM_FRAC) + int(H * 0.012)
 
-    # Fill the whole content area with the warm parchment background
-    # first, so the card reads as one cohesive piece rather than a thin
-    # white strip wedged between the purple header and footer bands.
-    # Uses the actual measured band edges (see the *_VISUAL_* constants),
-    # not the more conservative content-safety top/bottom, so it reaches
-    # all the way to the purple without a leftover white gap.
-    d.rectangle([0, int(H * HEADER_VISUAL_BOTTOM_FRAC), W, int(H * FOOTER_VISUAL_TOP_FRAC)],
-                fill=CARD_BG_COL)
-
-    # Info bar gets its own sizing pass first, deliberately the biggest,
-    # boldest text on the card (readable at a glance, not something you
-    # need to zoom in for) - a single line spanning the full width:
-    # Date | Day. Shaka Samvat/Gata Kali were dropped from this bar per
-    # request.
-    info_text = f"{blocks['info_bar']['date']}   |   {blocks['info_bar']['day']}"
-    inner_w = content_w - int(40 * scale)
-    info_size = max(int(66 * scale), 18)
-    while info_size > 16:
-        f_info = font_for(lang, "bold", info_size)
-        bbox = d.textbbox((0, 0), info_text, font=f_info)
-        if (bbox[2] - bbox[0]) <= inner_w:
+    # The date/day/location line - deliberately the single biggest, boldest
+    # piece of text on the whole card, well above the size any grid data
+    # ever reaches, so it's the first thing the eye lands on. Shrink it down
+    # from that target size if needed so it never runs past the card's
+    # edges - Tamil in particular renders noticeably wider than English at
+    # the same point size for this string.
+    subtitle_size = max(int(64 * scale), 14)
+    subtitle_margin_w = int(content_w * 0.96)
+    while subtitle_size > 14:
+        f_sub = font_for(lang, "bold", subtitle_size)
+        bbox = d.textbbox((0, 0), subtitle, font=f_sub)
+        if (bbox[2] - bbox[0]) <= subtitle_margin_w:
             break
-        info_size -= 1
+        subtitle_size -= 2
     else:
-        f_info = font_for(lang, "bold", info_size)
-    info_pad = max(int(20 * scale), 10)
-    info_h = info_size + int(20 * scale) + 2 * info_pad
-    box_gap0 = max(int(20 * scale), 10)
-    available = bottom - content_top - info_h - box_gap0
+        f_sub = font_for(lang, "bold", subtitle_size)
+    subtitle_h = subtitle_size + int(20 * scale)
+    content_top = top + int(14 * scale)
+    available = bottom - content_top - subtitle_h
 
-    font_scale = 1.4
-    m = None
+    col_gap = max(int(28 * scale), 12)
+    col_w = (content_w - col_gap) / 2
+
+    # Auto-fit: search for the LARGEST font_scale that still fits both
+    # columns (start big and shrink ~2% at a time for fine granularity),
+    # floor at 22% of base size. The two columns usually hold different
+    # amounts of content, so this sizes everything to whichever column is
+    # taller - the shorter column just ends higher up, which is normal for
+    # a two-column layout like this.
+    font_scale = 2.0
     while True:
-        m = _measure_v2(d, lang, blocks, content_w, font_scale, scale)
-        if m["total_h"] <= available or font_scale <= 0.22:
+        left_h, left_geoms, fonts, header_size, row_line_h, pad, group_gap = _measure_column(
+            d, lang, left_groups, col_w, font_scale, scale)
+        right_h, right_geoms, _, _, _, _, _ = _measure_column(
+            d, lang, right_groups, col_w, font_scale, scale)
+        total_h = max(left_h, right_h)
+        if total_h <= available or font_scale <= 0.22:
             break
         font_scale -= 0.02
 
-    squeeze = 1.0
-    if m["total_h"] > available > 0:
-        squeeze = max(available / m["total_h"], 0.5)
+    # Hard safety valve: even at the smallest readable font, an extreme day
+    # (many long chained transitions on both sides at once) could in theory
+    # still not fit. Rather than let that overflow into the temple's footer
+    # banner, compress the line/group spacing itself so the columns are
+    # GUARANTEED to end at or above `bottom`, no matter what.
+    if total_h > available > 0:
+        squeeze = max(available / total_h, 0.5)
+        row_line_h = max(int(row_line_h * squeeze), 1)
+        group_gap = max(group_gap * squeeze, 1)
+        pad = max(int(pad * squeeze), 1)
+        total_h = available
 
-    row_h = m["row_h"] * squeeze
-    pill_h = m["pill_h"] * squeeze
-    box_gap = m["box_gap"] * squeeze
-    pad = m["pad"]
-    col_gap = m["col_gap"]
-    left_col_w = m["left_col_w"]
-    right_col_w = m["right_col_w"]
-    border_w = m["border_w"]
-    radius = m["radius"]
-    bullet_d = m["bullet_d"]
-    gap = m["gap"]
-    fonts = m["fonts"]
+    y0 = content_top
+    d.text((W / 2, y0), subtitle, font=f_sub, fill=body_col, anchor="ma")
+    y0 += subtitle_h
 
-    def _rows_h(rows_geom, row_h_):
-        return sum(max(len(g["lines"]), 1) * row_h_ for g in rows_geom)
+    divider_w = max(1, int(1.5 * scale))
+    mid_x = left + col_w + col_gap / 2
+    d.line([(mid_x, y0), (mid_x, y0 + total_h)], fill=LINE_COL, width=divider_w)
 
-    left_box_h = _rows_h(m["left_rows_geom"], row_h) + 2 * pad
-    right_col_h = sum(pill_h + _rows_h(g["rows"], row_h) + 2 * pad for g in m["right_boxes_geom"])
-    right_col_h += box_gap * max(len(m["right_boxes_geom"]) - 1, 0)
-    main_row_h = max(left_box_h, right_col_h)
-    bottom_left_h = _rows_h(m["bottom_left_geom"], row_h)
-    bottom_right_h = _rows_h(m["bottom_right_geom"], row_h)
-    bottom_box_h = max(bottom_left_h, bottom_right_h) + 2 * pad
+    def _draw_column(x0, groups, geoms):
+        y = y0
+        n = len(groups)
+        for gi, (grp, geom) in enumerate(zip(groups, geoms)):
+            if geom["header"]:
+                d.text((x0, y), geom["header"], font=fonts["header"], fill=body_col)
+                y += header_size + pad
+                d.line([(x0, y), (x0 + col_w, y)], fill=LINE_COL, width=divider_w)
+                y += pad
+            for wrapped in geom["row_lines"]:
+                for line in wrapped:
+                    d.text((x0, y), line, font=fonts["row"], fill=TEXT_COL)
+                    y += row_line_h
+            if gi < n - 1:
+                y += group_gap
 
-    # Any leftover vertical space goes into stretching the bottom box and
-    # the gaps between rows in whichever main-row box is shorter, so the
-    # card fills the full available height instead of leaving dead white
-    # space - matching the reference's fully-used real estate.
-    boxes_total_h = box_gap + main_row_h + box_gap + bottom_box_h
-    leftover = max(0, available - boxes_total_h)
-    left_extra_step = 0
-    if leftover > 0:
-        extra = leftover / 2
-        bottom_box_h += extra
-        # Stretch the left box's rows to fill main_row_h if it's the
-        # shorter side (right column's pill boxes are already at
-        # main_row_h by construction when they're the taller one).
-        if left_box_h < main_row_h:
-            n_left = len(m["left_rows_geom"])
-            left_extra_step = (main_row_h - left_box_h) / max(n_left, 1)
+    _draw_column(left, left_groups, left_geoms)
+    _draw_column(mid_x + col_gap / 2, right_groups, right_geoms)
 
-    y = content_top
-
-    # Info bar: bordered strip, one big centered line - Date | Day.
-    d.rounded_rectangle([left, y, right, y + info_h], radius=radius,
-                         outline=BORDER_COL, width=border_w)
-    d.text((left + content_w / 2, y + info_h / 2), info_text,
-            font=f_info, fill=LABEL_COL, anchor="mm")
-    y += info_h + box_gap0
-
-    # Left box: Samvatsara through Karana, stretched to fill main_row_h
-    # if it's naturally shorter than the right column.
-    d.rounded_rectangle([left, y, left + left_col_w, y + main_row_h], radius=radius,
-                         outline=BORDER_COL, width=border_w)
-    _draw_box_rows(d, m["left_rows_geom"], left + pad, y + pad, row_h,
-                    fonts["label"], fonts["value"], bullet_d, gap,
-                    LABEL_COL, LABEL_COL, VALUE_COL, extra_step=left_extra_step)
-
-    # Right column: pill-headed Inauspicious/Auspicious boxes.
-    rx = left + left_col_w + col_gap
-    ry = y
-    for grp in m["right_boxes_geom"]:
-        rows_h = _rows_h(grp["rows"], row_h)
-        box_h = rows_h + 2 * pad + pill_h
-        d.rounded_rectangle([rx, ry, rx + right_col_w, ry + box_h], radius=radius,
-                             outline=BORDER_COL, width=border_w)
-        d.rounded_rectangle([rx, ry, rx + right_col_w, ry + pill_h],
-                             radius=radius, fill=grp["pill_color"])
-        # Square off the pill's bottom corners so it reads as a header
-        # bar flush with the box below it, not a floating rounded pill.
-        d.rectangle([rx, ry + pill_h - radius, rx + right_col_w, ry + pill_h],
-                     fill=grp["pill_color"])
-        d.text((rx + right_col_w / 2, ry + pill_h / 2), grp["pill"],
-                font=fonts["pill"], fill=(255, 255, 255), anchor="mm")
-        _draw_box_rows(d, grp["rows"], rx + pad, ry + pill_h + pad, row_h,
-                        fonts["label"], fonts["value"], bullet_d, gap,
-                        grp["pill_color"], LABEL_COL, VALUE_COL)
-        ry += box_h + box_gap
-
-    y += main_row_h + box_gap
-
-    # Bottom box: two columns, split at the same x-position as the
-    # left_box/right_boxes divider above - Sunrise/Sunset/Moonrise/
-    # Moonset on the left, Sun Sign/Moon Sign on the right (rather than
-    # one narrow list with a lot of empty space beside it). The shorter
-    # column is vertically centered so it doesn't look stranded at the
-    # top of a taller box.
-    d.rounded_rectangle([left, y, right, y + bottom_box_h], radius=radius,
-                         outline=BORDER_COL, width=border_w)
-    bmid_x = left + left_col_w + col_gap / 2
-    d.line([(bmid_x, y + pad / 2), (bmid_x, y + bottom_box_h - pad / 2)],
-           fill=BORDER_COL, width=max(1, border_w - 1))
-    bottom_left_h = _rows_h(m["bottom_left_geom"], row_h)
-    bottom_right_h = _rows_h(m["bottom_right_geom"], row_h)
-    by_left = y + (bottom_box_h - bottom_left_h) / 2
-    by_right = y + (bottom_box_h - bottom_right_h) / 2
-    _draw_box_rows(d, m["bottom_left_geom"], left + pad, by_left, row_h,
-                    fonts["label"], fonts["value"], bullet_d, gap,
-                    LABEL_COL, LABEL_COL, VALUE_COL)
-    _draw_box_rows(d, m["bottom_right_geom"], left + left_col_w + col_gap, by_right, row_h,
-                    fonts["label"], fonts["value"], bullet_d, gap,
-                    LABEL_COL, LABEL_COL, VALUE_COL)
-
-    img.save(outpath, quality=92)
+    # quality=85 + optimize is a meaningfully smaller file than quality=92
+    # (less data to upload from the Actions runner, less for recipients to
+    # download over WhatsApp) with no visible loss on a flat-color/text
+    # graphic like this - dimensions stay untouched, so none of the
+    # readability work above is affected.
+    img.save(outpath, format="JPEG", quality=85, optimize=True)
     return outpath
 
 
+_RANGE_RE = re.compile(r'(\d{1,2}:\d{2}\s*[AP]M)\s*(?:to|-|–)\s*(\d{1,2}:\d{2}\s*[AP]M)', re.IGNORECASE)
+
+
+def _to_min(s):
+    t = datetime.strptime(re.sub(r'\s+', ' ', s.strip().upper()), "%I:%M %p")
+    return t.hour * 60 + t.minute
+
+
+def _fmt_min(m):
+    return datetime(2000, 1, 1, m // 60, m % 60).strftime("%I:%M %p")
+
+
+def compute_day_windows(data, min_len=20, max_windows=3):
+    """Daytime 'good time' windows: sunrise-sunset with Rahu Kalam,
+    Yamagandam, Gulika Kalam, Durmuhurtam and Varjyam removed. Returns up
+    to `max_windows` longest remaining windows (each at least `min_len`
+    minutes), in clock order, as 'HH:MM AM to HH:MM PM'. Purely derived -
+    it does not alter any of the timings it is built from."""
+    try:
+        sr = _to_min(data["sunrise"])
+        ss = _to_min(data["sunset"])
+    except Exception:
+        return []
+    if ss <= sr:
+        return []
+    bad = []
+    for key in ("rahu_kalam", "yamaganda", "gulikai_kalam", "durmuhurtam", "varjyam"):
+        for a, b in _RANGE_RE.findall(data.get(key) or ""):
+            try:
+                s, e = _to_min(a), _to_min(b)
+            except Exception:
+                continue
+            if e < s:
+                e = 24 * 60
+            bad.append((s, e))
+    bad.sort()
+    free, cur = [], sr
+    for s, e in bad:
+        if e <= cur:
+            continue
+        if s > cur:
+            free.append((cur, min(s, ss)))
+        cur = max(cur, e)
+        if cur >= ss:
+            break
+    if cur < ss:
+        free.append((cur, ss))
+    free = [(a, b) for a, b in free if b - a >= min_len]
+    free = sorted(sorted(free, key=lambda w: w[0] - w[1])[:max_windows])
+    return [f"{_fmt_min(a)} to {_fmt_min(b)}" for a, b in free]
+
+
 def build_images(data, dt_ist):
+    palette = pick_palette(dt_ist.date() if hasattr(dt_ist, "date") else dt_ist)
+    day_windows = compute_day_windows(data)
     te_tithi, ta_tithi = translate_value(data["tithi"] or "", TITHI_TE, TITHI_TA)
     te_nak, ta_nak = translate_value(data["nakshatra"] or "", NAKSHATRA_TE, NAKSHATRA_TA)
     te_yoga, ta_yoga = translate_value(data["yoga"] or "", YOGA_TE, YOGA_TA)
@@ -1203,26 +1077,16 @@ def build_images(data, dt_ist):
     ta_ayana = AYANA_TA.get(ayana_raw, ayana_raw) if ayana_raw else "-"
     en_ayana = ayana_raw or "-"
 
-    surya_raw = data.get("surya_rasi")
-    en_surya = f"{surya_raw} ({RASHI_EN_WESTERN[surya_raw]})" if surya_raw else "-"
-    te_surya = RASHI_TE.get(surya_raw, surya_raw) if surya_raw else "-"
-    ta_surya = RASHI_TA.get(surya_raw, surya_raw) if surya_raw else "-"
-
-    chandra_raw = data.get("chandra_rasi")
-    en_chandra = f"{chandra_raw} ({RASHI_EN_WESTERN[chandra_raw]})" if chandra_raw else "-"
-    te_chandra = RASHI_TE.get(chandra_raw, chandra_raw) if chandra_raw else "-"
-    ta_chandra = RASHI_TA.get(chandra_raw, chandra_raw) if chandra_raw else "-"
-
     outputs = []
-    for lang, tithi, nak, yoga, kar, paksha, weekday, month_name, samv, masa, ritu, ayana, surya, chandra in [
+    for lang, tithi, nak, yoga, kar, paksha, weekday, month_name, samv, masa, ritu, ayana in [
         ("en", apply_en_overrides(data["tithi"]), apply_en_overrides(data["nakshatra"]),
          apply_en_overrides(data["yoga"]), apply_en_overrides(data["karana"]),
          data["paksha"], data["weekday_full"], dt_ist.strftime("%B"),
-         (samv_raw or "-"), en_masa, en_ritu, en_ayana, en_surya, en_chandra),
+         (samv_raw or "-"), en_masa, en_ritu, en_ayana),
         ("te", te_tithi, te_nak, te_yoga, te_kar, te_paksha, te_weekday, MONTH_TE[dt_ist.month],
-         te_samv, te_masa, te_ritu, te_ayana, te_surya, te_chandra),
+         te_samv, te_masa, te_ritu, te_ayana),
         ("ta", ta_tithi, ta_nak, ta_yoga, ta_kar, ta_paksha, ta_weekday, MONTH_TA[dt_ist.month],
-         ta_samv, ta_masa, ta_ritu, ta_ayana, ta_surya, ta_chandra),
+         ta_samv, ta_masa, ta_ritu, ta_ayana),
     ]:
         L = LABELS[lang]
         city = {"en": CITY_LABEL_EN, "te": CITY_LABEL_TE, "ta": CITY_LABEL_TA}[lang]
@@ -1230,11 +1094,10 @@ def build_images(data, dt_ist):
             date_str = dt_ist.strftime("%B %d, %Y")
         else:
             date_str = f"{month_name} {dt_ist.day:02d}, {dt_ist.year}"
+        subtitle = f"{date_str}  |  {weekday}  |  {city}"
 
         abhijit_val = data["abhijit"] if data["abhijit"] and data["abhijit"].lower() != "none" else L["none_today"]
         amrit_val = data["amrit_kalam"] if data["amrit_kalam"] and data["amrit_kalam"].lower() != "none" else L["none_today"]
-        varjyam_val = data["varjyam"] if data["varjyam"] and data["varjyam"].lower() != "none" else L["none_today"]
-        durmuhurtam_val = data["durmuhurtam"] if data["durmuhurtam"] and data["durmuhurtam"].lower() != "none" else L["none_today"]
 
         def _na_if_absent(val):
             # Some days genuinely have no moonrise/moonset within the
@@ -1249,63 +1112,48 @@ def build_images(data, dt_ist):
         moonrise_val = _na_if_absent(data["moonrise"]) or "-"
         moonset_val = _na_if_absent(data["moonset"]) or "-"
 
-        # Box layout: a single big bold Date | Day banner spanning the
-        # full width, a left box of Samvatsara through Karana as bulleted
-        # "Label : Value" rows (Tithi/Nakshatra/Yoga/Karana shown in the
-        # compact "Name (end time)" form via fmt_compact_chain), a right
-        # column of pill-headed Inauspicious/Auspicious Timings boxes,
-        # and a bottom box for Sunrise/Sunset/Moonrise/Moonset plus Sun
-        # Sign/Moon Sign - kept on this project's own header/footer
-        # template as before.
-        info_bar = {"date": date_str, "day": weekday}
-
-        godhuli_val = fmt_range_display(data.get("godhuli")) or "-"
-
-        blocks = {
-            "info_bar": info_bar,
-            "left_box": [
-                (L["samvatsara"], samv),
-                (L["ayana"], ayana),
-                (L["ritu"], ritu),
-                (L["masa"], masa),
-                (L["paksha"], paksha or "-"),
-                (L["tithi"], fmt_compact_chain(tithi, lang) or "-"),
-                (L["vara"], weekday),
-                (L["nakshatra"], fmt_compact_chain(nak, lang) or "-"),
-                (L["yoga"], fmt_compact_chain(yoga, lang) or "-"),
-                (L["karana"], fmt_compact_chain(kar, lang) or "-"),
-            ],
-            "right_boxes": [
-                {"pill": L["inauspicious"], "pill_color": INAUSPICIOUS_PILL_COL, "rows": [
-                    (L["rahu"], fmt_range_display(data["rahu_kalam"]) or "-"),
-                    (L["gulika"], fmt_range_display(data["gulikai_kalam"]) or "-"),
-                    (L["yama"], fmt_range_display(data["yamaganda"]) or "-"),
-                    (L["durmuhurtam"], fmt_range_display(durmuhurtam_val)),
-                    (L["varjyam"], fmt_range_display(varjyam_val)),
-                ]},
-                {"pill": L["auspicious"], "pill_color": AUSPICIOUS_PILL_COL, "rows": [
-                    (L["brahma"], fmt_range_display(data["brahma_muhurta"]) or "-"),
-                    (L["abhijit"], fmt_range_display(abhijit_val)),
-                    (L["amrit"], fmt_range_display(amrit_val)),
-                    (L["godhuli"], godhuli_val),
-                ]},
-            ],
-            "bottom_box": {
-                "left": [
-                    (L["sunrise"], data["sunrise"] or "-"),
-                    (L["sunset"], data["sunset"] or "-"),
-                    (L["moonrise"], moonrise_val),
-                    (L["moonset"], moonset_val),
-                ],
-                "right": [
-                    (L["sun_sign"], surya),
-                    (L["moon_sign"], chandra),
-                ],
-            },
-        }
+        # Two-column layout, styled after the reference the user liked:
+        # calendar identity + Tithi/Nakshatra/Yoga/Karana (each transition
+        # segment on its own bullet line) on the left; Sun/Moon times,
+        # Inauspicious Period, and Auspicious Period grouped on the right.
+        # Plain left-aligned "Label: Value" lines under plain section
+        # headers - no boxes, no per-field color coding.
+        left_groups = [
+            {"header": None, "rows": [
+                f"{L['samvatsara']}: {samv}",
+                f"{L['masa']}: {masa}",
+                f"{L['ritu']}: {ritu}",
+                f"{L['ayana']}: {ayana}",
+                f"{L['paksha']}: {paksha}",
+            ]},
+            {"header": L["tithi"], "rows": _split_chain_segments(tithi or "-", L["then"])},
+            {"header": L["nakshatra"], "rows": _split_chain_segments(nak or "-", L["then"])},
+            {"header": L["yoga"], "rows": _split_chain_segments(yoga or "-", L["then"])},
+            {"header": L["karana"], "rows": _split_chain_segments(kar or "-", L["then"])},
+        ]
+        right_groups = [
+            {"header": None, "rows": [
+                f"{L['sunrise']}: {data['sunrise'] or '-'}",
+                f"{L['sunset']}: {data['sunset'] or '-'}",
+                f"{L['moonrise']}: {moonrise_val}",
+                f"{L['moonset']}: {moonset_val}",
+            ]},
+            {"header": L["inauspicious"], "rows": [
+                f"{L['rahu']}: {data['rahu_kalam'] or '-'}",
+                f"{L['yama']}: {data['yamaganda'] or '-'}",
+                f"{L['gulika']}: {data['gulikai_kalam'] or '-'}",
+                f"{L['durmuhurtam']}: {data['durmuhurtam'] or '-'}",
+                f"{L['varjyam']}: {data['varjyam'] or '-'}",
+            ]},
+            {"header": L["auspicious"], "rows": [
+                f"{L['brahma']}: {data['brahma_muhurta'] or '-'}",
+                f"{L['abhijit']}: {abhijit_val}",
+                f"{L['amrit']}: {amrit_val}",
+            ] + ([f"{L['daytime']}: {day_windows[0]}"] + day_windows[1:] if day_windows else [])},
+        ]
 
         outpath = os.path.join(HERE, f"panchangam_{lang}.jpg")
-        render_card(lang, blocks, outpath)
+        render_card(lang, subtitle, left_groups, right_groups, outpath, palette)
         outputs.append((lang, outpath))
     return outputs
 
@@ -1439,22 +1287,12 @@ def _find_tithi_boundary(target_deg, lo, hi):
     return lo + (hi - lo) / 2
 
 
-def compute_tithi_chain(y, m, d, sunrise_override=None):
+def compute_tithi_chain(y, m, d):
     """Returns a string in the same 'Name upto TIME, then Name2' format the
     old scraper produced, e.g. 'Shashthi upto 03:29 AM, then Saptami', or
-    just 'Amavasya' if there's no transition before the next sunrise.
-
-    sunrise_override: an IST datetime for THIS date's actual sunrise (from
-    the live Drik Panchang scrape), used in place of the offline-ephemeris
-    estimate for determining which tithi is active at sunrise - the
-    estimate has been measured a few minutes off from Drik Panchang's own
-    figure (likely refraction-model or geoid differences), which could
-    misidentify the tithi if a transition happens to fall in that gap.
-    Tomorrow's sunrise (only used as a search-window bound, not to decide
-    which tithi is "today's") still comes from the estimate, where a few
-    minutes of imprecision doesn't affect correctness."""
+    just 'Amavasya' if there's no transition before the next sunrise."""
     midnight = datetime(y, m, d, 0, 0, tzinfo=IST)
-    sr0 = sunrise_override if sunrise_override else _sunrise_ist(midnight)
+    sr0 = _sunrise_ist(midnight)
     sr1 = _sunrise_ist(midnight + timedelta(days=1))
 
     idx = int(_tithi_angle(sr0) // 12)
@@ -1491,93 +1329,64 @@ def compute_tithi_chain(y, m, d, sunrise_override=None):
     return " ".join(parts)
 
 
-# --------------------------------------------------------------------------
-# Soorya Rasi (Sun's sidereal zodiac sign) - the same Lahiri-ayanamsha Sun
-# position already computed for the Tithi engine above, just read off as a
-# 30-degree zodiac slot instead of a Sun-Moon angle. Computed at sunrise,
-# matching how a printed Panchangam names "today's" Rasi.
-# --------------------------------------------------------------------------
-
-RASHI_NAMES = ["Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya",
-               "Tula", "Vrischika", "Dhanu", "Makara", "Kumbha", "Meena"]
-
-RASHI_EN_WESTERN = {
-    "Mesha": "Aries", "Vrishabha": "Taurus", "Mithuna": "Gemini", "Karka": "Cancer",
-    "Simha": "Leo", "Kanya": "Virgo", "Tula": "Libra", "Vrischika": "Scorpio",
-    "Dhanu": "Sagittarius", "Makara": "Capricorn", "Kumbha": "Aquarius", "Meena": "Pisces",
-}
-
-RASHI_TE = {
-    "Mesha": "మేషం", "Vrishabha": "వృషభం", "Mithuna": "మిథునం", "Karka": "కర్కాటకం",
-    "Simha": "సింహం", "Kanya": "కన్య", "Tula": "తుల", "Vrischika": "వృశ్చికం",
-    "Dhanu": "ధనుస్సు", "Makara": "మకరం", "Kumbha": "కుంభం", "Meena": "మీనం",
-}
-
-RASHI_TA = {
-    "Mesha": "மேஷம்", "Vrishabha": "ரிஷபம்", "Mithuna": "மிதுனம்", "Karka": "கடகம்",
-    "Simha": "சிம்மம்", "Kanya": "கன்னி", "Tula": "துலாம்", "Vrischika": "விருச்சிகம்",
-    "Dhanu": "தனுசு", "Makara": "மகரம்", "Kumbha": "கும்பம்", "Meena": "மீனம்",
-}
+NAKSHATRA_NAMES = [
+    "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu",
+    "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta",
+    "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", "Purva Ashadha",
+    "Uttara Ashadha", "Shravana", "Dhanishtha", "Shatabhisha", "Purva Bhadrapada",
+    "Uttara Bhadrapada", "Revati",
+]
 
 
-def compute_surya_rasi(y, m, d, sunrise_override=None):
-    """Returns the Sanskrit rashi name (e.g. 'Simha') the Sun occupies at
-    sunrise, sidereal/Lahiri - same convention as compute_tithi_chain.
-    sunrise_override: see compute_tithi_chain - anchors to the live-
-    scraped sunrise instead of the offline-ephemeris estimate."""
+def _moon_sidereal(dt_ist):
+    moon, _ = swe.calc_ut(_jd_from_ist(dt_ist), swe.MOON, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
+    return moon[0] % 360
+
+
+def compute_nakshatra_chain(y, m, d):
+    """Same idea as compute_tithi_chain, for Nakshatra (13 deg 20' of the
+    Moon's sidereal longitude each, Lahiri). Returns e.g. 'Ashwini upto
+    04:15 AM, Nov 23, then Bharani' - always with the date when the
+    transition falls on the next calendar day, and always naming the
+    nakshatra that follows."""
+    step = 360.0 / 27
     midnight = datetime(y, m, d, 0, 0, tzinfo=IST)
-    sr = sunrise_override if sunrise_override else _sunrise_ist(midnight)
-    jd = _jd_from_ist(sr)
-    sun, _ = swe.calc_ut(jd, swe.SUN, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
-    idx = int(sun[0] // 30) % 12
-    return RASHI_NAMES[idx]
+    sr0 = _sunrise_ist(midnight)
+    sr1 = _sunrise_ist(midnight + timedelta(days=1))
+    idx = int(_moon_sidereal(sr0) // step) % 27
+    segments = [[NAKSHATRA_NAMES[idx], None]]
+    t = sr0
+    for _ in range(4):
+        target = ((idx + 1) * step) % 360
 
+        def f(tt, target=target):
+            return _unwrap_near(_moon_sidereal(tt), target) - target
 
-def compute_chandra_rasi(y, m, d, sunrise_override=None):
-    """Same idea as compute_surya_rasi but for the Moon. Unlike the Sun
-    (which takes a full month to cross one rashi), the Moon crosses a
-    rashi roughly every 2.25 days and can genuinely change rashi partway
-    through a single Panchang day - Drik Panchang's own sidebar shows
-    this as e.g. 'Moonsign: Makara upto 12:27 PM'. This simplified
-    version only reports the rashi AT sunrise (a single value, no
-    mid-day transition), same convention as Soorya Rasi elsewhere on
-    this card - a reasonable simplification given we don't have the
-    boundary-crossing search machinery for the Moon that the Tithi engine
-    has for Sun-Moon angle, but one worth knowing about if the exact
-    transition time is ever needed."""
-    midnight = datetime(y, m, d, 0, 0, tzinfo=IST)
-    sr = sunrise_override if sunrise_override else _sunrise_ist(midnight)
-    jd = _jd_from_ist(sr)
-    moon, _ = swe.calc_ut(jd, swe.MOON, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
-    idx = int(moon[0] // 30) % 12
-    return RASHI_NAMES[idx]
-
-
-def compute_gata_kali(shaka_year):
-    """Elapsed Kali Yuga year count from the Shaka Samvat year - simple,
-    fixed arithmetic (Kali Yuga began 3179 years before the Shaka era),
-    verified against a real printed Panchangam: Shaka 1948 -> Gata Kali
-    5127, exactly."""
-    try:
-        return int(shaka_year) + 3179
-    except (TypeError, ValueError):
-        return None
-
-
-def compute_godhuli(sunset_str):
-    """Godhuli Muhurta ('cow-dust hour'): the 24-minute auspicious window
-    centered on sunset, 12 minutes before to 12 minutes after - the
-    standard definition per Muhurta Ganapati. Verified against a real
-    printed Panchangam: sunset 18:35:08 -> Godhuli 18:23-18:47, exactly."""
-    if not sunset_str:
-        return None
-    try:
-        t = datetime.strptime(sunset_str.strip(), "%I:%M %p")
-    except ValueError:
-        return None
-    start = t - timedelta(minutes=12)
-    end = t + timedelta(minutes=12)
-    return f"{start.strftime('%I:%M %p')} to {end.strftime('%I:%M %p')}"
+        lo, hi = t, sr1
+        flo, fhi = f(lo), f(hi)
+        if (flo < 0) == (fhi < 0):
+            break
+        for _i in range(60):
+            mid = lo + (hi - lo) / 2
+            fm = f(mid)
+            if (flo < 0) == (fm < 0):
+                lo, flo = mid, fm
+            else:
+                hi, fhi = mid, fm
+        b = lo + (hi - lo) / 2
+        idx = (idx + 1) % 27
+        segments[-1][1] = b
+        segments.append([NAKSHATRA_NAMES[idx], None])
+        t = b
+    card_date = midnight.date()
+    parts = []
+    for name, end in segments:
+        if end is None:
+            parts.append(name)
+        else:
+            tag = "" if end.date() == card_date else f", {end.strftime('%b %d')}"
+            parts.append(f"{name} upto {end.strftime('%I:%M %p')}{tag}, then")
+    return " ".join(parts)
 
 
 MAX_ATTEMPTS = 5
@@ -1593,15 +1402,15 @@ def fetch_and_validate(date_str, weekday_full):
     except Exception as e:
         return None, f"fetch error: {e}"
 
-    # Override the scraped Rahu Kalam / Yamagandam with the fixed
-    # per-weekday table - see FIXED_KALAM_TABLE above for why. Gulika
-    # Kalam is deliberately left as-is (the scraped Drik Panchang value),
-    # since the user wants everything except these two to match Drik
-    # exactly.
+    # Override the scraped Rahu Kalam / Yamagandam / Gulika Kalam with the
+    # fixed per-weekday table - see FIXED_KALAM_TABLE above for why. This
+    # also means these three fields can no longer fail validation due to a
+    # scraping/parsing issue, since they're now computed, not scraped.
     fixed = FIXED_KALAM_TABLE.get(weekday_full)
     if fixed:
         data["rahu_kalam"] = f"{fixed['rahu'][0]} to {fixed['rahu'][1]}"
         data["yamaganda"] = f"{fixed['yama'][0]} to {fixed['yama'][1]}"
+        data["gulikai_kalam"] = f"{fixed['gulika'][0]} to {fixed['gulika'][1]}"
 
     # Override the scraped Tithi with the self-contained ephemeris
     # computation above - verified to match Drik Panchang's own Tithi
@@ -1609,51 +1418,22 @@ def fetch_and_validate(date_str, weekday_full):
     # scraping fragile HTML for this field. Fall back to the scraped value
     # if the computation fails for any reason (e.g. swisseph not available)
     # rather than losing the field entirely.
-    # Anchor to the live-scraped sunrise (data["sunrise"], e.g. "06:04 AM")
-    # rather than the offline-ephemeris sunrise estimate - the estimate has
-    # been measured a few minutes off Drik Panchang's own figure, which
-    # could misidentify the tithi/rasi if a transition falls in that gap.
-    sunrise_dt = None
     try:
         dd, mm_, yyyy = date_str.split("/")
-        if data.get("sunrise"):
-            t = datetime.strptime(data["sunrise"].strip(), "%I:%M %p")
-            sunrise_dt = datetime(int(yyyy), int(mm_), int(dd), t.hour, t.minute, tzinfo=IST)
-    except Exception as e:
-        print(f"  WARNING: could not parse scraped sunrise for tithi/rasi anchoring ({e})", file=sys.stderr)
-
-    try:
-        dd, mm_, yyyy = date_str.split("/")
-        computed_tithi = compute_tithi_chain(int(yyyy), int(mm_), int(dd), sunrise_override=sunrise_dt)
+        computed_tithi = compute_tithi_chain(int(yyyy), int(mm_), int(dd))
         if computed_tithi:
             data["tithi"] = computed_tithi
     except Exception as e:
         print(f"  WARNING: computed Tithi failed ({e}), falling back to scraped value", file=sys.stderr)
 
-    # Soorya Rasi / Chandra Rasi (Sun/Moon sign) - not scraped at all
-    # (Drik Panchang's day-panchang page doesn't surface either directly),
-    # computed fresh from the same sidereal Sun/Moon position as the
-    # Tithi engine above. Best-effort: if this fails, the card just shows
-    # "-" for the field rather than failing the whole run, same fallback
-    # philosophy as the year-info extras.
-    data["surya_rasi"] = None
-    data["chandra_rasi"] = None
+    # Nakshatra: same treatment, so it always reads "X upto TIME, DATE,
+    # then Y" with the following nakshatra named.
     try:
-        dd, mm_, yyyy = date_str.split("/")
-        data["surya_rasi"] = compute_surya_rasi(int(yyyy), int(mm_), int(dd), sunrise_override=sunrise_dt)
+        computed_nak = compute_nakshatra_chain(int(yyyy), int(mm_), int(dd))
+        if computed_nak:
+            data["nakshatra"] = computed_nak
     except Exception as e:
-        print(f"  WARNING: computed Soorya Rasi failed ({e})", file=sys.stderr)
-    try:
-        dd, mm_, yyyy = date_str.split("/")
-        data["chandra_rasi"] = compute_chandra_rasi(int(yyyy), int(mm_), int(dd), sunrise_override=sunrise_dt)
-    except Exception as e:
-        print(f"  WARNING: computed Chandra Rasi failed ({e})", file=sys.stderr)
-
-    # Gata Kali - fixed arithmetic from the Shaka year, and Godhuli
-    # Muhurta - fixed offset from sunset. Both verified against a real
-    # printed Panchangam above; best-effort, same fallback philosophy.
-    data["gata_kali"] = compute_gata_kali(data.get("shaka_year"))
-    data["godhuli"] = compute_godhuli(data.get("sunset"))
+        print(f"  WARNING: computed Nakshatra failed ({e}), falling back to scraped value", file=sys.stderr)
 
     print("Parsed fields:")
     for k, v in data.items():
