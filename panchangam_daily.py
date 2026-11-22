@@ -753,12 +753,14 @@ def _measure_column(draw, lang, groups, col_w, font_scale, scale):
     title bar on top). Rows flagged kv=True are 'Label: value' lines drawn
     with a bullet and a coloured bold label. Returns the same tuple shape
     as before plus an `ex` dict of horizontal metrics."""
-    header_size = max(int(34 * scale * font_scale), 14)
-    row_size = max(int(40 * scale * font_scale), 14)
-    pad = max(int(8 * scale * font_scale), 4)
-    line_gap = max(int(4 * scale * font_scale), 2)
-    group_gap = max(int(14 * scale * font_scale), 6)
-    px = max(int(16 * scale * font_scale), 6)
+    # Text is a touch smaller than before, with noticeably more air around
+    # it (padding inside boxes, gaps between lines and between boxes).
+    header_size = max(int(32 * scale * font_scale), 14)
+    row_size = max(int(38 * scale * font_scale), 14)
+    pad = max(int(13 * scale * font_scale), 6)
+    line_gap = max(int(9 * scale * font_scale), 4)
+    group_gap = max(int(22 * scale * font_scale), 10)
+    px = max(int(24 * scale * font_scale), 8)
     bullet_w = max(int(row_size * 0.6), 8)
 
     fonts = {
@@ -1027,7 +1029,7 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
     # amounts of content, so this sizes everything to whichever column is
     # taller - the shorter column just ends higher up, which is normal for
     # a two-column layout like this.
-    font_scale = 2.0
+    font_scale = 0.9   # capped: no longer grows to fill every spare pixel
     while True:
         left_h, left_geoms, fonts, header_size, row_line_h, pad, group_gap, ex = _measure_column(
             d, lang, left_groups, col_w, font_scale, scale)
@@ -1050,7 +1052,10 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
         pad = max(int(pad * squeeze), 1)
         total_h = available
 
-    y0 = content_top
+    # Spare vertical room becomes breathing space: a little more under the
+    # date box, and the rest split above/below the content.
+    slack = max(available - total_h, 0)
+    y0 = content_top + int(slack * 0.25)
     border_w = max(2, int(2.5 * scale))
     radius = max(int(14 * scale), 6)
     # Date / day / city line inside a rounded outline box
