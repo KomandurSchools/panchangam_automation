@@ -699,7 +699,7 @@ SUBTITLE_COL = (95, 40, 130)
 
 def font_for(lang, weight, size):
     if lang == "en":
-        path = "Poppins-Bold.ttf" if weight == "bold" else "Poppins-Medium.ttf"
+        path = "Poppins-Bold.ttf" if weight == "bold" else "Poppins-Medium.ttf"  # "reg" -> Medium
         return ImageFont.truetype(os.path.join(FONT_DIR, path), size)
     # Full, official Google Fonts variable-weight files (not the earlier
     # hand-merged subsets) - complete glyph coverage for the script, Latin,
@@ -749,7 +749,49 @@ def _split_chain_segments(chain_str, then_word):
 
 
 def _measure_column(draw, lang, groups, col_w, font_scale, scale):
-    """Compute the wrapped-line layout for one column (a list of groups,
+    """Boxed layout: every group is its own rounded box (optional coloured
+    title bar on top). Rows flagged kv=True are 'Label: value' lines drawn
+    with a bullet and a coloured bold label. Returns the same tuple shape
+    as before plus an `ex` dict of horizontal metrics."""
+    header_size = max(int(34 * scale * font_scale), 14)
+    row_size = max(int(40 * scale * font_scale), 14)
+    pad = max(int(8 * scale * font_scale), 4)
+    line_gap = max(int(4 * scale * font_scale), 2)
+    group_gap = max(int(14 * scale * font_scale), 6)
+    px = max(int(16 * scale * font_scale), 6)
+    bullet_w = max(int(row_size * 0.6), 8)
+
+    fonts = {
+        "header": font_for(lang, "bold", header_size),
+        "row": font_for(lang, "bold", row_size),
+        "val": font_for(lang, "reg", row_size),
+    }
+    row_line_h = row_size + line_gap
+    ex = {"px": px, "bullet_w": bullet_w, "row_size": row_size}
+
+    geoms = []
+    total_h = 0
+    for gi, grp in enumerate(groups):
+        kv = grp.get("kv", False)
+        g = {"header": grp.get("header"), "row_lines": [], "kv": kv,
+             "bar": grp.get("bar")}
+        inner_w = col_w - 2 * px - (bullet_w if kv else 0)
+        n_lines = 0
+        for text in grp["rows"]:
+            wrapped = _wrap_lines(draw, text, fonts["row"], inner_w)
+            g["row_lines"].append(wrapped)
+            n_lines += len(wrapped)
+        gh = ((header_size + 2 * pad) if g["header"] else 0) + 2 * pad + n_lines * row_line_h
+        geoms.append(g)
+        total_h += gh
+        if gi < len(groups) - 1:
+            total_h += group_gap
+
+    return total_h, geoms, fonts, header_size, row_line_h, pad, group_gap, ex
+
+
+def _measure_column_legacy(draw, lang, groups, col_w, font_scale, scale):
+    """(Superseded flat layout.) Compute the wrapped-line layout for one column (a list of groups,
     each an optional header + a list of already-formatted text rows)
     WITHOUT drawing anything, so render_card can auto-shrink the font
     until both columns fit between the template's header and footer bars."""
@@ -837,6 +879,56 @@ def pick_palette(dt):
 
 _ORIG_BAND = (103, 45, 145)
 _THEME_CACHE = {}
+_GEO = {}
+
+
+def _geometry():
+    """Measure where the template's header band, footer band and deity photo
+    actually are, from its pixels - so the script works with whatever
+    template file is in assets/ (any height), instead of trusting fixed
+    fractions. Falls back to the old fractions if detection looks wrong."""
+    if _GEO:
+        return _GEO
+    img = Image.open(TEMPLATE_PATH).convert("RGB")
+    W, H = img.size
+    px = img.load()
+
+    def purple(p):
+        return abs(p[0] - 103) < 45 and abs(p[1] - 45) < 45 and abs(p[2] - 145) < 45
+
+    hdr, top, bottom = int(H * HEADER_FRAC), int(H * FOOTER_FRAC), H
+    xl, xr = int(W * 0.0145), int(W * 0.9895)
+    try:
+        y = 3
+        while y < H and purple(px[3, y]):
+            y += 1
+        h2 = y
+        xs = int(W * 0.02)
+        yb = H - 1
+        while yb > H // 2 and not purple(px[xs, yb]):
+            yb -= 1
+        b2 = yb + 1
+        yt = yb
+        while yt > H // 2 and purple(px[xs, yt]):
+            yt -= 1
+        t2 = yt + 1
+        ym = (t2 + b2) // 2
+        l2 = 0
+        while l2 < W and not purple(px[l2, ym]):
+            l2 += 1
+        r2 = W - 1
+        while r2 > 0 and not purple(px[r2, ym]):
+            r2 -= 1
+        if (0.05 * H < h2 < 0.3 * H and 0.5 * H < t2 < b2 <= H
+                and b2 - t2 > 0.08 * H and l2 < 0.1 * W and r2 > 0.9 * W):
+            hdr, top, bottom, xl, xr = h2, t2, b2, l2, r2
+    except Exception:
+        pass
+    fh = bottom - top
+    photo = (int(xl + 0.106 * fh), int(top + 0.047 * fh),
+             int(xl + 0.106 * fh + 0.608 * fh), int(top + 0.949 * fh))
+    _GEO.update(hdr=hdr, top=top, bottom=bottom, xl=xl, xr=xr, photo=photo, W=W, H=H)
+    return _GEO
 
 
 def _themed_base(palette):
@@ -853,7 +945,8 @@ def _themed_base(palette):
     W, H = img.size
     bg2, y2, w2 = palette[0], palette[1], palette[2]
     px = img.load()
-    photo = (int(W * 0.0353), int(H * 0.8143), int(W * 0.1651), int(H * 0.9780))  # x0,y0,x1,y1
+    geo = _geometry()
+    photo = geo["photo"]  # x0,y0,x1,y1 (the photo's own white box)
 
     def recolor(x0, y0, x1, y1):
         for y in range(y0, y1):
@@ -874,8 +967,8 @@ def _themed_base(palette):
                             int(bg2[1] + (t[1] - bg2[1]) * f),
                             int(bg2[2] + (t[2] - bg2[2]) * f))
 
-    recolor(0, 0, W, int(H * HEADER_FRAC))
-    recolor(int(W * 0.0164), int(H * FOOTER_FRAC), int(W * 0.9924), int(H * 0.9846))
+    recolor(0, 0, W, geo["hdr"])
+    recolor(geo["xl"], geo["top"], geo["xr"] + 1, geo["bottom"])
     _THEME_CACHE[palette] = img
     return img.copy()
 
@@ -894,11 +987,11 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
     W, H = img.size
     d = ImageDraw.Draw(img)
 
-    top = int(H * HEADER_FRAC)
-    # Small safety margin below the nominal footer-bar boundary, so even a
-    # rounding edge case never lets content visually touch the temple's
-    # footer banner.
-    bottom = int(H * FOOTER_FRAC) - int(H * 0.008)
+    geo = _geometry()
+    top = geo["hdr"]
+    # Small safety margin above the footer band (measured from the actual
+    # template pixels), so content never touches the temple's footer banner.
+    bottom = geo["top"] - int(H * 0.012)
     left = int(W * LEFT_FRAC)
     right = int(W * RIGHT_FRAC)
     content_w = right - left
@@ -911,7 +1004,7 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
     # edges - Tamil in particular renders noticeably wider than English at
     # the same point size for this string.
     subtitle_size = max(int(64 * scale), 14)
-    subtitle_margin_w = int(content_w * 0.96)
+    subtitle_margin_w = int(content_w * 0.92)
     while subtitle_size > 14:
         f_sub = font_for(lang, "bold", subtitle_size)
         bbox = d.textbbox((0, 0), subtitle, font=f_sub)
@@ -920,7 +1013,8 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
         subtitle_size -= 2
     else:
         f_sub = font_for(lang, "bold", subtitle_size)
-    subtitle_h = subtitle_size + int(20 * scale)
+    sub_box_h = subtitle_size + int(34 * scale)
+    subtitle_h = sub_box_h + int(16 * scale)
     content_top = top + int(14 * scale)
     available = bottom - content_top - subtitle_h
 
@@ -935,10 +1029,10 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
     # a two-column layout like this.
     font_scale = 2.0
     while True:
-        left_h, left_geoms, fonts, header_size, row_line_h, pad, group_gap = _measure_column(
+        left_h, left_geoms, fonts, header_size, row_line_h, pad, group_gap, ex = _measure_column(
             d, lang, left_groups, col_w, font_scale, scale)
-        right_h, right_geoms, _, _, _, _, _ = _measure_column(
-            d, lang, right_groups, col_w, font_scale, scale)
+        right_h, right_geoms = _measure_column(
+            d, lang, right_groups, col_w, font_scale, scale)[:2]
         total_h = max(left_h, right_h)
         if total_h <= available or font_scale <= 0.22:
             break
@@ -957,29 +1051,61 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
         total_h = available
 
     y0 = content_top
-    d.text((W / 2, y0), subtitle, font=f_sub, fill=body_col, anchor="ma")
+    border_w = max(2, int(2.5 * scale))
+    radius = max(int(14 * scale), 6)
+    # Date / day / city line inside a rounded outline box
+    d.rounded_rectangle([left, y0, right, y0 + sub_box_h], radius=radius,
+                        outline=body_col, width=border_w, fill=(255, 255, 255))
+    d.text((W / 2, y0 + sub_box_h / 2), subtitle, font=f_sub, fill=body_col, anchor="mm")
     y0 += subtitle_h
 
-    divider_w = max(1, int(1.5 * scale))
-    mid_x = left + col_w + col_gap / 2
-    d.line([(mid_x, y0), (mid_x, y0 + total_h)], fill=LINE_COL, width=divider_w)
+    row_size = ex["row_size"]
+    px_in = ex["px"]
+    bullet_w = ex["bullet_w"]
 
     def _draw_column(x0, groups, geoms):
         y = y0
         n = len(groups)
         for gi, (grp, geom) in enumerate(zip(groups, geoms)):
+            col = geom["bar"] or body_col
+            n_lines = sum(len(w) for w in geom["row_lines"])
+            bar_h = (header_size + 2 * pad) if geom["header"] else 0
+            box_h = bar_h + 2 * pad + n_lines * row_line_h
+            d.rounded_rectangle([x0, y, x0 + col_w, y + box_h], radius=radius,
+                                outline=col, width=border_w, fill=(255, 255, 255))
             if geom["header"]:
-                d.text((x0, y), geom["header"], font=fonts["header"], fill=body_col)
-                y += header_size + pad
-                d.line([(x0, y), (x0 + col_w, y)], fill=LINE_COL, width=divider_w)
-                y += pad
+                try:
+                    d.rounded_rectangle([x0, y, x0 + col_w, y + bar_h], radius=radius,
+                                        fill=col, corners=(True, True, False, False))
+                except TypeError:
+                    d.rectangle([x0, y, x0 + col_w, y + bar_h], fill=col)
+                d.text((x0 + col_w / 2, y + pad), geom["header"], font=fonts["header"],
+                       fill=(255, 255, 255), anchor="ma")
+            yy = y + bar_h + pad
+            tx0 = x0 + px_in
             for wrapped in geom["row_lines"]:
-                for line in wrapped:
-                    d.text((x0, y), line, font=fonts["row"], fill=TEXT_COL)
-                    y += row_line_h
+                has_kv = geom["kv"] and (": " in wrapped[0] or wrapped[0].endswith(":"))
+                text_x = tx0 + (bullet_w if geom["kv"] else 0)
+                if has_kv:
+                    r = max(int(row_size * 0.17), 3)
+                    cy = yy + row_size * 0.55
+                    d.ellipse([tx0, cy - r, tx0 + 2 * r, cy + r], fill=col)
+                for li, line in enumerate(wrapped):
+                    if has_kv and li == 0:
+                        label, _sep, val = line.partition(": ")
+                        label = label.rstrip(":") + ":"
+                        d.text((text_x, yy), label, font=fonts["row"], fill=col)
+                        lw = d.textlength(label + " ", font=fonts["row"])
+                        d.text((text_x + lw, yy), val, font=fonts["val"], fill=TEXT_COL)
+                    else:
+                        f = fonts["val"] if geom["kv"] else fonts["row"]
+                        d.text((text_x, yy), line, font=f, fill=TEXT_COL)
+                    yy += row_line_h
+            y += box_h
             if gi < n - 1:
                 y += group_gap
 
+    mid_x = left + col_w + col_gap / 2
     _draw_column(left, left_groups, left_geoms)
     _draw_column(mid_x + col_gap / 2, right_groups, right_geoms)
 
@@ -1118,34 +1244,45 @@ def build_images(data, dt_ist):
         # Inauspicious Period, and Auspicious Period grouped on the right.
         # Plain left-aligned "Label: Value" lines under plain section
         # headers - no boxes, no per-field color coding.
+        def _chain_rows(s):
+            # One line per segment; every line after the first is led by
+            # "Then:" (తర్వాత / பின்) so it reads as what comes next.
+            segs = _split_chain_segments(s or "-", L["then"])
+            rows = []
+            for i, seg in enumerate(segs):
+                if lang == "en":
+                    seg = seg.replace(" upto ", " till ")
+                rows.append(seg if i == 0 else f"{L['then'].capitalize()}: {seg}")
+            return rows
+
         left_groups = [
-            {"header": None, "rows": [
+            {"header": None, "kv": True, "rows": [
                 f"{L['samvatsara']}: {samv}",
                 f"{L['masa']}: {masa}",
                 f"{L['ritu']}: {ritu}",
                 f"{L['ayana']}: {ayana}",
                 f"{L['paksha']}: {paksha}",
             ]},
-            {"header": L["tithi"], "rows": _split_chain_segments(tithi or "-", L["then"])},
-            {"header": L["nakshatra"], "rows": _split_chain_segments(nak or "-", L["then"])},
-            {"header": L["yoga"], "rows": _split_chain_segments(yoga or "-", L["then"])},
-            {"header": L["karana"], "rows": _split_chain_segments(kar or "-", L["then"])},
+            {"header": L["tithi"], "rows": _chain_rows(tithi)},
+            {"header": L["nakshatra"], "rows": _chain_rows(nak)},
+            {"header": L["yoga"], "rows": _chain_rows(yoga)},
+            {"header": L["karana"], "rows": _chain_rows(kar)},
         ]
         right_groups = [
-            {"header": None, "rows": [
+            {"header": None, "kv": True, "rows": [
                 f"{L['sunrise']}: {data['sunrise'] or '-'}",
                 f"{L['sunset']}: {data['sunset'] or '-'}",
                 f"{L['moonrise']}: {moonrise_val}",
                 f"{L['moonset']}: {moonset_val}",
             ]},
-            {"header": L["inauspicious"], "rows": [
+            {"header": L["inauspicious"], "kv": True, "bar": (140, 48, 52), "rows": [
                 f"{L['rahu']}: {data['rahu_kalam'] or '-'}",
                 f"{L['yama']}: {data['yamaganda'] or '-'}",
                 f"{L['gulika']}: {data['gulikai_kalam'] or '-'}",
                 f"{L['durmuhurtam']}: {data['durmuhurtam'] or '-'}",
                 f"{L['varjyam']}: {data['varjyam'] or '-'}",
             ]},
-            {"header": L["auspicious"], "rows": [
+            {"header": L["auspicious"], "kv": True, "bar": (38, 110, 72), "rows": [
                 f"{L['brahma']}: {data['brahma_muhurta'] or '-'}",
                 f"{L['abhijit']}: {abhijit_val}",
                 f"{L['amrit']}: {amrit_val}",
@@ -1287,8 +1424,9 @@ def _find_tithi_boundary(target_deg, lo, hi):
     return lo + (hi - lo) / 2
 
 
-def compute_tithi_chain(y, m, d):
-    """Returns a string in the same 'Name upto TIME, then Name2' format the
+def _legacy_tithi_chain(y, m, d):
+    """(Superseded by the generic _angle_chain version defined below.)
+    Returns a string in the same 'Name upto TIME, then Name2' format the
     old scraper produced, e.g. 'Shashthi upto 03:29 AM, then Saptami', or
     just 'Amavasya' if there's no transition before the next sunrise."""
     midnight = datetime(y, m, d, 0, 0, tzinfo=IST)
@@ -1343,50 +1481,103 @@ def _moon_sidereal(dt_ist):
     return moon[0] % 360
 
 
-def compute_nakshatra_chain(y, m, d):
-    """Same idea as compute_tithi_chain, for Nakshatra (13 deg 20' of the
-    Moon's sidereal longitude each, Lahiri). Returns e.g. 'Ashwini upto
-    04:15 AM, Nov 23, then Bharani' - always with the date when the
-    transition falls on the next calendar day, and always naming the
-    nakshatra that follows."""
-    step = 360.0 / 27
+YOGA_NAMES = [
+    "Vishkambha", "Priti", "Ayushman", "Saubhagya", "Shobhana", "Atiganda", "Sukarma",
+    "Dhriti", "Shula", "Ganda", "Vriddhi", "Dhruva", "Vyaghata", "Harshana", "Vajra",
+    "Siddhi", "Vyatipata", "Variyana", "Parigha", "Shiva", "Siddha", "Sadhya", "Shubha",
+    "Shukla", "Brahma", "Indra", "Vaidhriti",
+]
+_KARANA_REPEAT = ["Bava", "Balava", "Kaulava", "Taitila", "Garaja", "Vanija", "Vishti"]
+
+
+def _karana_name(i):
+    i %= 60
+    if i == 0:
+        return "Kimstughna"
+    if i == 57:
+        return "Shakuni"
+    if i == 58:
+        return "Chatushpada"
+    if i == 59:
+        return "Naga"
+    return _KARANA_REPEAT[(i - 1) % 7]
+
+
+def _sun_moon(dt_ist):
+    jd = _jd_from_ist(dt_ist)
+    moon, _ = swe.calc_ut(jd, swe.MOON, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
+    sun, _ = swe.calc_ut(jd, swe.SUN, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
+    return sun[0] % 360, moon[0] % 360
+
+
+def _angle_chain(y, m, d, angle_fn, n, name_fn):
+    """Generic sunrise-to-sunrise chain for any panchang limb that is an
+    angle divided into `n` equal parts (Tithi 30, Nakshatra 27, Yoga 27,
+    Karana 60). Returns 'A upto 11:42 PM, Nov 23, then B upto 08:23 PM,
+    Nov 24' - EVERY segment carries its end time AND date, and the last
+    segment (the one running at the next sunrise) is followed through to
+    its own end, so the card can say what comes next and until when."""
+    step = 360.0 / n
     midnight = datetime(y, m, d, 0, 0, tzinfo=IST)
     sr0 = _sunrise_ist(midnight)
     sr1 = _sunrise_ist(midnight + timedelta(days=1))
-    idx = int(_moon_sidereal(sr0) // step) % 27
-    segments = [[NAKSHATRA_NAMES[idx], None]]
-    t = sr0
-    for _ in range(4):
+
+    def boundary(idx, lo, hi):
         target = ((idx + 1) * step) % 360
 
-        def f(tt, target=target):
-            return _unwrap_near(_moon_sidereal(tt), target) - target
-
-        lo, hi = t, sr1
+        def f(t):
+            return _unwrap_near(angle_fn(t), target) - target
         flo, fhi = f(lo), f(hi)
         if (flo < 0) == (fhi < 0):
-            break
-        for _i in range(60):
+            return None
+        for _ in range(60):
             mid = lo + (hi - lo) / 2
             fm = f(mid)
             if (flo < 0) == (fm < 0):
                 lo, flo = mid, fm
             else:
                 hi, fhi = mid, fm
-        b = lo + (hi - lo) / 2
-        idx = (idx + 1) % 27
-        segments[-1][1] = b
-        segments.append([NAKSHATRA_NAMES[idx], None])
+        return lo + (hi - lo) / 2
+
+    idx = int(angle_fn(sr0) // step) % n
+    segs = []
+    t = sr0
+    for _ in range(8):
+        b = boundary(idx, t, sr1)
+        if b is None:
+            break
+        segs.append((idx, b))
+        idx = (idx + 1) % n
         t = b
-    card_date = midnight.date()
+    last_end = boundary(idx, t, t + timedelta(days=2))
+    segs.append((idx, last_end))
+
     parts = []
-    for name, end in segments:
-        if end is None:
-            parts.append(name)
-        else:
-            tag = "" if end.date() == card_date else f", {end.strftime('%b %d')}"
-            parts.append(f"{name} upto {end.strftime('%I:%M %p')}{tag}, then")
-    return " ".join(parts)
+    for i, (k, end) in enumerate(segs):
+        txt = name_fn(k)
+        if end is not None:
+            txt += f" upto {end.strftime('%I:%M %p')}, {end.strftime('%b %d')}"
+        parts.append(txt)
+    return ", then ".join(parts)
+
+
+def compute_tithi_chain(y, m, d):
+    return _angle_chain(y, m, d, _tithi_angle, 30, lambda k: TITHI_NAMES[k % 30])
+
+
+def compute_nakshatra_chain(y, m, d):
+    return _angle_chain(y, m, d, _moon_sidereal, 27, lambda k: NAKSHATRA_NAMES[k % 27])
+
+
+def compute_yoga_chain(y, m, d):
+    def ang(t):
+        s, mo = _sun_moon(t)
+        return (s + mo) % 360
+    return _angle_chain(y, m, d, ang, 27, lambda k: YOGA_NAMES[k % 27])
+
+
+def compute_karana_chain(y, m, d):
+    return _angle_chain(y, m, d, _tithi_angle, 60, _karana_name)
 
 
 MAX_ATTEMPTS = 5
@@ -1428,12 +1619,15 @@ def fetch_and_validate(date_str, weekday_full):
 
     # Nakshatra: same treatment, so it always reads "X upto TIME, DATE,
     # then Y" with the following nakshatra named.
-    try:
-        computed_nak = compute_nakshatra_chain(int(yyyy), int(mm_), int(dd))
-        if computed_nak:
-            data["nakshatra"] = computed_nak
-    except Exception as e:
-        print(f"  WARNING: computed Nakshatra failed ({e}), falling back to scraped value", file=sys.stderr)
+    for key, fn in (("nakshatra", compute_nakshatra_chain),
+                    ("yoga", compute_yoga_chain),
+                    ("karana", compute_karana_chain)):
+        try:
+            val = fn(int(yyyy), int(mm_), int(dd))
+            if val:
+                data[key] = val
+        except Exception as e:
+            print(f"  WARNING: computed {key} failed ({e}), falling back to scraped value", file=sys.stderr)
 
     print("Parsed fields:")
     for k, v in data.items():
