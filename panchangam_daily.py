@@ -999,7 +999,7 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
     top = geo["hdr"]
     # Small safety margin above the footer band (measured from the actual
     # template pixels), so content never touches the temple's footer banner.
-    bottom = geo["top"] - int(H * 0.03)
+    bottom = geo["top"] - int(H * 0.02)
     left = int(W * LEFT_FRAC)
     right = int(W * RIGHT_FRAC)
     content_w = right - left
@@ -1073,10 +1073,25 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
         ex["item_gap"] = max(int(ex["item_gap"] * squeeze), 1)
         total_h = available
 
-    # Spare vertical room becomes breathing space: a little more under the
-    # date box, and the rest split above/below the content.
-    slack = max(available - total_h, 0)
-    y0 = content_top + int(slack * 0.25)
+    # Fill the poster: any spare vertical room is spread evenly through the
+    # spacing (padding inside boxes, gaps between items, gaps between boxes)
+    # - font size, boxes and layout are untouched. Each column is stretched
+    # so it ends exactly at the same bottom line.
+    def _stretch(geoms):
+        G = len(geoms)
+        text_h = sum(((header_size + 2 * pad) if g["header"] else 0)
+                     + sum(len(w) for w in g["row_lines"]) * row_line_h for g in geoms)
+        I = sum(max(len(g["row_lines"]) - 1, 0) for g in geoms)
+        weight = 2 * G * pad + I * ex["item_gap"] + max(G - 1, 0) * group_gap
+        f = 1.0
+        if weight > 0 and available > text_h + weight:
+            f = 1 + (available - text_h - weight) / weight
+        return pad * f, ex["item_gap"] * f, group_gap * f
+
+    left_params = _stretch(left_geoms)
+    right_params = _stretch(right_geoms)
+
+    y0 = content_top
     border_w = max(2, int(2.5 * scale))
     radius = max(int(14 * scale), 6)
     # Date / day / city line inside a rounded outline box
@@ -1088,17 +1103,17 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
     row_size = ex["row_size"]
     px_in = ex["px"]
     bullet_w = ex["bullet_w"]
-    item_gap = ex["item_gap"]
 
-    def _draw_column(x0, groups, geoms):
+    def _draw_column(x0, groups, geoms, params):
+        pin, item_gap, group_gap_c = params
         y = y0
         n = len(groups)
         for gi, (grp, geom) in enumerate(zip(groups, geoms)):
             col = geom["bar"] or body_col
             n_lines = sum(len(w) for w in geom["row_lines"])
             bar_h = (header_size + 2 * pad) if geom["header"] else 0
-            box_h = (bar_h + 2 * pad + n_lines * row_line_h
-                     + max(len(geom["row_lines"]) - 1, 0) * item_gap)
+            box_h = int(bar_h + 2 * pin + n_lines * row_line_h
+                        + max(len(geom["row_lines"]) - 1, 0) * item_gap)
             d.rounded_rectangle([x0, y, x0 + col_w, y + box_h], radius=radius,
                                 outline=col, width=border_w, fill=(255, 255, 255))
             if geom["header"]:
@@ -1109,7 +1124,7 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
                     d.rectangle([x0, y, x0 + col_w, y + bar_h], fill=col)
                 d.text((x0 + col_w / 2, y + pad), geom["header"], font=fonts["header"],
                        fill=(255, 255, 255), anchor="ma")
-            yy = y + bar_h + pad
+            yy = y + bar_h + pin
             tx0 = x0 + px_in
             for wrapped in geom["row_lines"]:
                 has_kv = geom["kv"] and (": " in wrapped[0] or wrapped[0].endswith(":"))
@@ -1132,11 +1147,11 @@ def render_card(lang, subtitle, left_groups, right_groups, outpath, palette=None
                 yy += item_gap
             y += box_h
             if gi < n - 1:
-                y += group_gap
+                y += group_gap_c
 
     mid_x = left + col_w + col_gap / 2
-    _draw_column(left, left_groups, left_geoms)
-    _draw_column(mid_x + col_gap / 2, right_groups, right_geoms)
+    _draw_column(left, left_groups, left_geoms, left_params)
+    _draw_column(mid_x + col_gap / 2, right_groups, right_geoms, right_params)
 
     # quality=85 + optimize is a meaningfully smaller file than quality=92
     # (less data to upload from the Actions runner, less for recipients to
